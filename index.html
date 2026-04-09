@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partner Portal · Sterlinx Global</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0f1f3d;--accent:#c8a96e;--accent2:#e8c98a;
+  --white:#fff;--off:#f7f6f3;--muted:#8a8f9e;--border:#e4e2dd;
+  --paid-bg:#e8f5ee;--paid-txt:#1a6b3c;
+  --pend-bg:#fff4e0;--pend-txt:#8a5a00;
+  --none-bg:#faeaea;--none-txt:#9b2c2c;
+  --text:#1a1f2e;--sub:#4a5168;
+}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{width:240px;min-height:100vh;background:var(--navy);display:flex;flex-direction:column;padding:2rem 1.5rem;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:2.5rem}
+.logo-mark{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:16px;color:var(--navy);flex-shrink:0}
+.logo-text{font-size:13px;font-weight:500;color:var(--white);line-height:1.3}
+.logo-sub{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em;text-transform:uppercase}
+.nav-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.75rem;padding-left:.5rem}
+.nav-item{display:flex;align-items:center;gap:10px;padding:.6rem .75rem;border-radius:8px;font-size:13px;color:rgba(255,255,255,.6);margin-bottom:2px;text-decoration:none;transition:all .15s}
+.nav-item.active,.nav-item:hover{background:rgba(255,255,255,.08);color:var(--white)}
+.nav-item.active{color:var(--accent2)}
+.nav-icon{font-size:13px;width:18px;text-align:center}
+.sidebar-footer{margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:1.25rem}
+.partner-chip{display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--navy);flex-shrink:0}
+.p-name{font-size:13px;color:var(--white);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-role{font-size:10px;color:rgba(255,255,255,.35)}
+
+/* ── Main ── */
+.main{margin-left:240px;flex:1;padding:2rem 2.5rem;min-height:100vh}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2rem}
+.page-title{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;line-height:1.2}
+.page-sub{font-size:13px;color:var(--muted);margin-top:4px}
+.rate-pill{background:var(--navy);color:var(--accent2);font-size:12px;font-weight:500;padding:6px 14px;border-radius:99px;white-space:nowrap}
+
+/* ── KPIs ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.75rem}
+.kpi-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;animation:fadeUp .4s ease both}
+.kpi-card:nth-child(2){animation-delay:.06s}
+.kpi-card:nth-child(3){animation-delay:.12s}
+.kpi-card:nth-child(4){animation-delay:.18s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.c-earned::before{background:var(--navy)}
+.kpi-card.c-paid::before{background:#1a6b3c}
+.kpi-card.c-pend::before{background:#8a5a00}
+.kpi-card.c-count::before{background:var(--accent)}
+.kpi-label{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+.kpi-value{font-family:'DM Serif Display',serif;font-size:28px;line-height:1}
+.kpi-card.c-paid .kpi-value{color:var(--paid-txt)}
+.kpi-card.c-pend .kpi-value{color:var(--pend-txt)}
+.kpi-note{font-size:11px;color:var(--muted);margin-top:6px}
+
+/* ── Content grid ── */
+.content-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.right-col{display:flex;flex-direction:column;gap:14px}
+
+/* ── Cards ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;animation:fadeUp .4s .2s ease both}
+.card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:500}
+.card-badge{font-size:11px;color:var(--muted);background:var(--off);padding:2px 10px;border-radius:99px}
+
+/* ── Invoice table ── */
+.tbl-wrap{overflow-x:auto}
+.inv-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.inv-tbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;background:var(--off);border-bottom:1px solid var(--border);white-space:nowrap}
+.inv-tbl td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.inv-tbl tr:last-child td{border-bottom:none}
+.inv-tbl tbody tr:hover td{background:#fafaf8}
+.mono{font-family:monospace;font-size:12px;color:var(--sub)}
+
+/* ── Pills ── */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.pill::before{content:'';width:5px;height:5px;border-radius:50%}
+.pill-paid{background:var(--paid-bg);color:var(--paid-txt)}.pill-paid::before{background:var(--paid-txt)}
+.pill-pending{background:var(--pend-bg);color:var(--pend-txt)}.pill-pending::before{background:var(--pend-txt)}
+.pill-nocomm{background:var(--none-bg);color:var(--none-txt)}.pill-nocomm::before{background:var(--none-txt)}
+
+/* ── Client bars ── */
+.client-item{padding:.75rem 1.25rem;border-bottom:1px solid var(--border)}
+.client-item:last-child{border-bottom:none}
+.client-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;font-weight:500}
+.bar-track{height:3px;background:var(--border);border-radius:2px}
+.bar-fill{height:3px;background:var(--navy);border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+
+/* ── Summary ── */
+.sum-row{display:flex;justify-content:space-between;padding:.7rem 1.25rem;border-bottom:1px solid var(--border);font-size:13px}
+.sum-row:last-child{border-bottom:none}
+.sum-lbl{color:var(--sub)}.sum-val{font-weight:500}
+
+/* ── Rules ── */
+.rules-wrap{padding:.75rem 1.25rem}
+.rule{display:flex;gap:10px;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--sub);line-height:1.5}
+.rule:last-child{border-bottom:none}
+.rule-n{width:18px;height:18px;border-radius:50%;background:var(--navy);color:var(--white);font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+/* ── States ── */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:1rem}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite}
+.state-title{font-family:'DM Serif Display',serif;font-size:22px}
+.state-sub{font-size:14px;color:var(--muted);max-width:400px;line-height:1.6}
+.state-sub code{background:var(--off);padding:2px 6px;border-radius:4px;font-size:12px;border:1px solid var(--border)}
+
+/* ── Footer ── */
+.footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+
+/* ── Animations ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Responsive ── */
+@media(max-width:900px){.sidebar{display:none}.main{margin-left:0;padding:1.25rem}.kpi-grid{grid-template-columns:repeat(2,1fr)}.content-grid{grid-template-columns:1fr}}
+@media(max-width:500px){.kpi-grid{grid-template-columns:1fr 1fr}.rate-pill{display:none}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div>
+      <div class="logo-text">Sterlinx Global</div>
+      <div class="logo-sub">Partner Portal</div>
+    </div>
+  </div>
+  <div class="nav-label">Menu</div>
+  <a class="nav-item active" href="#"><span class="nav-icon">◈</span> Commission</a>
+  <a class="nav-item" href="#"><span class="nav-icon">○</span> Invoices</a>
+  <a class="nav-item" href="#"><span class="nav-icon">◇</span> Documents</a>
+  <div class="sidebar-footer">
+    <div class="partner-chip">
+      <div class="avatar" id="sb-av">--</div>
+      <div>
+        <div class="p-name" id="sb-name">Loading...</div>
+        <div class="p-role">Affiliate Partner</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<main class="main" id="app">
+  <div class="state">
+    <div class="spinner"></div>
+    <div class="state-title">Loading your dashboard</div>
+    <div class="state-sub">Fetching commission data...</div>
+  </div>
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+//  ★  ONLY THING YOUR STAFF NEED TO CONFIGURE — EVER
+//
+//  Step 1: Create a Google Sheet with this EXACT layout:
+//
+//  Tab name: Partners
+//  ┌─────────────┬────────────┬──────────────────────────────┬────────────────┬──────────┐
+//  │ PartnerName │ PartnerURL │ SheetURL                     │ CommissionRate │ SheetTab │
+//  ├─────────────┼────────────┼──────────────────────────────┼────────────────┼──────────┤
+//  │ Anil Demir  │ anil-demir │ https://docs.google.com/...  │ 20             │ Commission_Log│
+//  │ Jane Smith  │ jane-smith │ https://docs.google.com/...  │ 20             │ Commission_Log│
+//  └─────────────┴────────────┴──────────────────────────────┴────────────────┴──────────┘
+//
+//  Step 2: Publish it → File → Share → Publish to web
+//          → Choose "Partners" tab → CSV format → Publish
+//
+//  Step 3: Copy the Sheet ID from the URL and paste below.
+//          Sheet URL looks like:
+//          https://docs.google.com/spreadsheets/d/SHEET_ID_IS_HERE/edit
+//
+// ════════════════════════════════════════════════════════════════════
+const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
+
+// ── Column headers in the config sheet (don't change unless you rename them) ──
+const C = {
+  name:    'PartnerName',
+  slug:    'PartnerURL',
+  url:     'SheetURL',
+  rate:    'CommissionRate',
+  tab:     'SheetTab',
+};
+
+// ── Column headers in each partner's commission sheet ──
+// If you rename a column in a partner's sheet, update it here
+const D = {
+  entity:      'EntityName',
+  invoiceId:   'InvoiceID',
+  invoiceDate: 'InvoiceDate',
+  payDate:     'InvoicePaymentDate',
+  amtExVAT:    'AmountExVAT',
+  commAmt:     'CommissionAmount',
+  commStatus:  'CommissionStatus',
+  commPayDate: 'CommissionPayDate',
+  eligible:    'CommissionEligible',
+};
+
+// ════════════════════════════════════════════════════════════════════
+//  Core helpers
+// ════════════════════════════════════════════════════════════════════
+
+function getSlug(){
+  return window.location.pathname.replace(/^\/+|\/+$/g, '') || null;
+}
+
+// Accepts any Google Sheets URL and extracts the Sheet ID
+function extractId(url){
+  const m = (url||'').match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+function parseCsv(text){
+  return new Promise((res, rej) =>
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: r => res(r.data),
+      error:    e => rej(e),
+    })
+  );
+}
+
+async function fetchSheet(urlOrId, tab){
+  const url = (urlOrId||'').startsWith('http')
+    ? urlOrId
+    : `https://docs.google.com/spreadsheets/d/${urlOrId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
+  return parseCsv(await r.text());
+}
+
+function gbp(n){
+  return '£' + (parseFloat(n)||0).toLocaleString('en-GB',
+    {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function dt(s){
+  if(!s) return '—';
+  const d = new Date(s);
+  return isNaN(d) ? s : d.toLocaleDateString('en-GB',
+    {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function statusPill(status){
+  const s = (status||'').trim();
+  if(s === 'Paid')           return `<span class="pill pill-paid">Paid</span>`;
+  if(s === 'Pending')        return `<span class="pill pill-pending">Pending</span>`;
+  if(s === 'No Commission')  return `<span class="pill pill-nocomm">No commission</span>`;
+  return s ? `<span class="pill pill-nocomm">${s}</span>` : '—';
+}
+
+function av(name){
+  return (name||'??').trim().split(' ')
+    .map(w => w[0]).join('').toUpperCase().slice(0,2);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Render
+// ════════════════════════════════════════════════════════════════════
+function showError(title, msg){
+  document.getElementById('app').innerHTML = `
+    <div class="state">
+      <div style="font-size:2rem">⚠</div>
+      <div class="state-title">${title}</div>
+      <div class="state-sub">${msg}</div>
+    </div>`;
+}
+
+function renderDashboard(partner, rows){
+  const rate    = parseFloat(partner[C.rate]) || 20;
+  const eligible = rows.filter(r => (r[D.eligible]||'').trim() === 'Yes');
+  const earned   = eligible.reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
+  const paid     = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Paid')
+                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
+  const pending  = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Pending')
+                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
+
+  // Client breakdown
+  const byClient = {};
+  eligible.forEach(r => {
+    const k = (r[D.entity]||'Unknown').trim();
+    byClient[k] = (byClient[k]||0) + (parseFloat(r[D.commAmt])||0);
+  });
+  const clients = Object.entries(byClient).sort((a,b) => b[1]-a[1]);
+  const maxAmt  = clients[0]?.[1] || 1;
+
+  // Update sidebar
+  document.getElementById('sb-av').textContent   = av(partner[C.name]);
+  document.getElementById('sb-name').textContent = partner[C.name];
+  document.title = `${partner[C.name]} · Sterlinx Partner Portal`;
+
+  const now = new Date().toLocaleDateString('en-GB',
+    {day:'2-digit', month:'long', year:'numeric'});
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td>${(r[D.entity]||'—').trim()}</td>
+      <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
+      <td>${dt(r[D.invoiceDate])}</td>
+      <td>${dt(r[D.payDate])}</td>
+      <td style="text-align:right">${gbp(r[D.amtExVAT])}</td>
+      <td style="text-align:right">${(parseFloat(r[D.commAmt])||0)>0 ? gbp(r[D.commAmt]) : '—'}</td>
+      <td>${dt(r[D.commPayDate])}</td>
+      <td>${statusPill(r[D.commStatus])}</td>
+    </tr>`).join('');
+
+  const clientRows = clients.map(([name, amt]) => `
+    <div class="client-item">
+      <div class="client-row">
+        <span>${name}</span>
+        <span>${gbp(amt)}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${Math.round(amt/maxAmt*100)}%"></div>
+      </div>
+    </div>`).join('');
+
+  const totalExVAT = rows.reduce((s,r) => s+(parseFloat(r[D.amtExVAT])||0), 0);
+  const excluded   = rows.length - eligible.length;
+
+  document.getElementById('app').innerHTML = `
+  <div>
+    <div class="topbar">
+      <div>
+        <div class="page-title">Commission Statement</div>
+        <div class="page-sub">All figures in GBP · Refreshed ${now}</div>
+      </div>
+      <div class="rate-pill">◈ ${Math.round(rate)}% commission rate</div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card c-earned">
+        <div class="kpi-label">Total earned</div>
+        <div class="kpi-value">${gbp(earned)}</div>
+        <div class="kpi-note">${rows.length} invoice${rows.length!==1?'s':''} logged</div>
+      </div>
+      <div class="kpi-card c-paid">
+        <div class="kpi-label">Paid to you</div>
+        <div class="kpi-value">${gbp(paid)}</div>
+        <div class="kpi-note">${eligible.filter(r=>(r[D.commStatus]||'').trim()==='Paid').length} invoices settled</div>
+      </div>
+      <div class="kpi-card c-pend">
+        <div class="kpi-label">Pending</div>
+        <div class="kpi-value">${gbp(pending)}</div>
+        <div class="kpi-note">Due 30 days after client pays</div>
+      </div>
+      <div class="kpi-card c-count">
+        <div class="kpi-label">Eligible invoices</div>
+        <div class="kpi-value">${eligible.length}</div>
+        <div class="kpi-note">${excluded} excluded (govt fees)</div>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Invoice breakdown</span>
+          <span class="card-badge">${rows.length} records</span>
+        </div>
+        <div class="tbl-wrap">
+          <table class="inv-tbl">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Invoice</th>
+                <th>Invoice date</th>
+                <th>Payment date</th>
+                <th style="text-align:right">Ex VAT</th>
+                <th style="text-align:right">Commission</th>
+                <th>Pay by</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows || `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No records found</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Commission by client</span></div>
+          ${clientRows || `<div style="padding:1rem;font-size:13px;color:var(--muted)">No data</div>`}
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Summary</span></div>
+          <div class="sum-row"><span class="sum-lbl">Total ex VAT</span><span class="sum-val">${gbp(totalExVAT)}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Commission earned</span><span class="sum-val">${gbp(earned)}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Paid to date</span><span class="sum-val" style="color:var(--paid-txt)">${gbp(paid)}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Outstanding</span><span class="sum-val" style="color:var(--pend-txt)">${gbp(pending)}</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Commission terms</span></div>
+          <div class="rules-wrap">
+            <div class="rule"><div class="rule-n">1</div><div>20% of net invoice (ex VAT) only</div></div>
+            <div class="rule"><div class="rule-n">2</div><div>Paid 30 days after client settles</div></div>
+            <div class="rule"><div class="rule-n">3</div><div>Govt gateway fees are excluded</div></div>
+            <div class="rule"><div class="rule-n">4</div><div>VAT number holders: 20% on gross</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Sterlinx Global Ltd · Partner Commission Portal</span>
+      <span>Data refreshes on every page load</span>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Boot — reads config sheet first, then partner data sheet
+// ════════════════════════════════════════════════════════════════════
+async function boot(){
+  const slug = getSlug();
+
+  if(!slug){
+    showError('No partner specified',
+      'Visit your personal URL — e.g. <code>partners.sterlinx.co.uk/anil-demir</code>');
+    return;
+  }
+
+  if(!CONFIG_SHEET_ID || CONFIG_SHEET_ID === 'YOUR_CONFIG_SHEET_ID_HERE'){
+    showError('Not configured yet',
+      'Open <code>index.html</code> and replace <code>YOUR_CONFIG_SHEET_ID_HERE</code> with your config sheet ID.');
+    return;
+  }
+
+  // Step 1: load master config sheet using published CSV URL
+  const CONFIG_CSV_URL = `https://docs.google.com/spreadsheets/d/${CONFIG_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Partners`;
+  let configRows;
+  try {
+    configRows = await fetchSheet(CONFIG_CSV_URL, 'Partners');
+  } catch(e){
+    showError('Could not load partner list',
+      'Check that the config Google Sheet is published as CSV and the Sheet ID is correct.');
+    return;
+  }
+
+  // Step 2: find the partner matching this URL slug
+  const partner = configRows.find(r =>
+    (r[C.slug]||'').trim().toLowerCase() === slug.toLowerCase()
+  );
+
+  if(!partner){
+    showError('Partner not found',
+      `No partner with URL <code>/${slug}</code> exists in the config sheet yet. Ask your Sterlinx contact to add you.`);
+    return;
+  }
+
+  // Update sidebar immediately with name while data loads
+  document.getElementById('sb-av').textContent   = av(partner[C.name]);
+  document.getElementById('sb-name').textContent = partner[C.name];
+
+  // Step 3: extract Sheet ID from the partner's Google Sheet URL
+  const partnerSheetId = extractId(partner[C.url]);
+  const partnerTab     = (partner[C.tab]||'Commission_Log').trim();
+
+  if(!partnerSheetId){
+    showError('Invalid sheet URL',
+      `The sheet URL for <strong>${partner[C.name]}</strong> doesn't look right. Check the config sheet.`);
+    return;
+  }
+
+  // Step 4: load the partner's commission data
+  let rows;
+  try {
+    rows = await fetchSheet(partner[C.url].trim(), partnerTab);
+  } catch(e){
+    showError('Could not load commission data',
+      `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);
+    return;
+  }
+
+  // Step 5: render
+  renderDashboard(partner, rows);
+}
+
+boot();
+</script>
+</body>
+</html>

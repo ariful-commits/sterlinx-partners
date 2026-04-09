@@ -178,8 +178,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //          Sheet URL looks like:
 //          https://docs.google.com/spreadsheets/d/SHEET_ID_IS_HERE/edit
 //
+//  Optional: after Publish to web (Partners → CSV), paste the full CSV link here.
+//  When set, the portal loads that URL directly (same link as in the browser address bar
+//  when you open the published CSV). Leave empty to build the URL from CONFIG_SHEET_ID.
+//
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
+const CONFIG_PUBLISHED_CSV_URL = '';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -438,11 +443,12 @@ async function boot(){
     return;
   }
 
-  // Step 1: load master config sheet using published CSV URL
-  const CONFIG_CSV_URL = `https://docs.google.com/spreadsheets/d/${CONFIG_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Partners`;
+  // Step 1: load master config — prefer full published CSV link; else build from sheet ID
+  const configCsvUrl = (CONFIG_PUBLISHED_CSV_URL || '').trim()
+    || `https://docs.google.com/spreadsheets/d/${CONFIG_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Partners')}`;
   let configRows;
   try {
-    configRows = await fetchSheet(CONFIG_CSV_URL, 'Partners');
+    configRows = await fetchSheet(configCsvUrl);
   } catch(e){
     showError('Could not load partner list',
       'Check that the config Google Sheet is published as CSV and the Sheet ID is correct.');

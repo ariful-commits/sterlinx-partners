@@ -189,6 +189,7 @@ const C = {
   url:     'SheetURL',
   rate:    'CommissionRate',
   tab:     'SheetTab',
+  password: 'Password',
 };
 
 // ── Column headers in each partner's commission sheet ──
@@ -458,6 +459,38 @@ async function boot(){
     showError('Partner not found',
       `No partner with URL <code>/${slug}</code> exists in the config sheet yet. Ask your Sterlinx contact to add you.`);
     return;
+  }
+
+  // Password check
+  const requiredPass = (partner[C.password]||'').trim();
+  if(requiredPass){
+    const stored = sessionStorage.getItem('sp_'+slug);
+    if(stored !== requiredPass){
+      document.getElementById('app').innerHTML = `
+        <div class="state" style="min-height:100vh">
+          <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:2rem 2.5rem;width:320px;text-align:center">
+            <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:8px">Partner Portal</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:1.5rem">Enter your access password</div>
+            <input id="pass-input" type="password" placeholder="Password" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;outline:none">
+            <button id="pass-btn" style="width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Access Dashboard</button>
+            <div id="pass-err" style="color:#9b2c2c;font-size:12px;margin-top:8px"></div>
+          </div>
+        </div>`;
+      document.getElementById('sb-av').textContent = 'S';
+      document.getElementById('sb-name').textContent = 'Partner Portal';
+      const check = () => {
+        const val = document.getElementById('pass-input').value;
+        if(val === requiredPass){
+          sessionStorage.setItem('sp_'+slug, val);
+          boot();
+        } else {
+          document.getElementById('pass-err').textContent = 'Incorrect password';
+        }
+      };
+      document.getElementById('pass-btn').addEventListener('click', check);
+      document.getElementById('pass-input').addEventListener('keydown', e => { if(e.key==='Enter') check(); });
+      return;
+    }
   }
 
   // Update sidebar immediately with name while data loads

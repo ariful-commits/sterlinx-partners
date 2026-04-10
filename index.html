@@ -178,13 +178,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //          Sheet URL looks like:
 //          https://docs.google.com/spreadsheets/d/SHEET_ID_IS_HERE/edit
 //
-//  Optional: after Publish to web (Partners → CSV), paste the full CSV link here.
-//  When set, the portal loads that URL directly (same link as in the browser address bar
-//  when you open the published CSV). Leave empty to build the URL from CONFIG_SHEET_ID.
-//
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
-const CONFIG_PUBLISHED_CSV_URL = '';
+const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT00lvHvaF8VpcaoH0k2DDOIVMd9I9l5kBIiCJJ3umCk2vVohKTUQ0-jzSvG0hS8VMTGrBuwETgEOMY/pub?gid=0&single=true&output=csv';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -234,11 +230,10 @@ function parseCsv(text){
   );
 }
 
-async function fetchSheet(urlOrId, tab){
-  const url = (urlOrId||'').startsWith('http')
-    ? urlOrId
-    : `https://docs.google.com/spreadsheets/d/${urlOrId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
-  const r = await fetch(url);
+async function fetchSheet(sheetUrl){
+  // Route through server-side proxy to avoid CORS
+  const proxyUrl = '/sheet-proxy?url=' + encodeURIComponent(sheetUrl);
+  const r = await fetch(proxyUrl);
   if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
   return parseCsv(await r.text());
 }
@@ -443,15 +438,13 @@ async function boot(){
     return;
   }
 
-  // Step 1: load master config — prefer full published CSV link; else build from sheet ID
-  const configCsvUrl = (CONFIG_PUBLISHED_CSV_URL || '').trim()
-    || `https://docs.google.com/spreadsheets/d/${CONFIG_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Partners')}`;
+  // Step 1: load master config sheet — fetch published CSV URL directly
   let configRows;
   try {
-    configRows = await fetchSheet(configCsvUrl);
+    configRows = await fetchSheet(CONFIG_CSV_DIRECT);
   } catch(e){
     showError('Could not load partner list',
-      'Check that the config Google Sheet is published as CSV and the Sheet ID is correct.');
+      'Check that the config Google Sheet is published as CSV and the Sheet ID is correct. Error: ' + e.message);
     return;
   }
 
@@ -483,7 +476,7 @@ async function boot(){
   // Step 4: load the partner's commission data
   let rows;
   try {
-    rows = await fetchSheet(partner[C.url].trim(), partnerTab);
+    rows = await fetchSheet(partner[C.url].trim());
   } catch(e){
     showError('Could not load commission data',
       `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);

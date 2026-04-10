@@ -156,7 +156,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
         <div class="p-role">Affiliate Partner</div>
       </div>
     </div>
-    <button class="logout-btn" id="logout-btn">Sign out</button>
+    <button class="logout-btn" onclick="sessionStorage.clear();location.href=location.pathname;">Sign out</button>
   </div>
 </aside>
 
@@ -565,11 +565,6 @@ async function boot(){
 }
 
 boot();
-
-document.getElementById('logout-btn').addEventListener('click', () => {
-  sessionStorage.clear();
-  window.location.reload();
-});
 </script>
 </body>
 </html>

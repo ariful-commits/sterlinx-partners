@@ -32,9 +32,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .nav-item.active{color:var(--accent2)}
 .nav-icon{font-size:13px;width:18px;text-align:center}
 .sidebar-footer{margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:1.25rem}
-.partner-chip{display:flex;align-items:center;gap:10px;margin-bottom:.75rem}
-.logout-btn{width:100%;padding:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;transition:all .15s}
-.logout-btn:hover{background:rgba(255,255,255,.12);color:var(--white)}
+.partner-chip{display:flex;align-items:center;gap:10px}
 .avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--navy);flex-shrink:0}
 .p-name{font-size:13px;color:var(--white);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p-role{font-size:10px;color:rgba(255,255,255,.35)}
@@ -114,14 +112,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .state-sub{font-size:14px;color:var(--muted);max-width:400px;line-height:1.6}
 .state-sub code{background:var(--off);padding:2px 6px;border-radius:4px;font-size:12px;border:1px solid var(--border)}
 
-/* ── Pagination ── */
-.pagination{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-top:1px solid var(--border)}
-.pg-btns{display:flex;gap:8px}
-.pg-btn{padding:5px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--white);color:var(--text);cursor:pointer;transition:all .15s}
-.pg-btn:hover:not(:disabled){background:var(--navy);color:var(--white);border-color:var(--navy)}
-.pg-btn:disabled{opacity:.4;cursor:default}
-.pg-info{font-size:12px;color:var(--muted)}
-
 /* ── Footer ── */
 .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
 
@@ -146,8 +136,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
   </div>
   <div class="nav-label">Menu</div>
   <a class="nav-item active" href="#"><span class="nav-icon">◈</span> Commission</a>
-  
-  
+  <a class="nav-item" href="#"><span class="nav-icon">○</span> Invoices</a>
+  <a class="nav-item" href="#"><span class="nav-icon">◇</span> Documents</a>
   <div class="sidebar-footer">
     <div class="partner-chip">
       <div class="avatar" id="sb-av">--</div>
@@ -156,7 +146,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
         <div class="p-role">Affiliate Partner</div>
       </div>
     </div>
-    <button class="logout-btn" onclick="sessionStorage.clear();location.href=location.pathname;">Sign out</button>
   </div>
 </aside>
 
@@ -191,7 +180,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
-const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTuxFpKKoRDxHuIyaws-eIX2Oy6J3bx2eO1yrKJLmhWi69_fTdcS2F6ZjhO1XSxKoNcMiD7WiAL3X2e/pub?gid=0&single=true&output=csv';
+const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT00lvHvaF8VpcaoH0k2DDOIVMd9I9l5kBIiCJJ3umCk2vVohKTUQ0-jzSvG0hS8VMTGrBuwETgEOMY/pub?gid=0&single=true&output=csv';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -200,7 +189,6 @@ const C = {
   url:     'SheetURL',
   rate:    'CommissionRate',
   tab:     'SheetTab',
-  password: 'Password',
 };
 
 // ── Column headers in each partner's commission sheet ──
@@ -242,15 +230,15 @@ function parseCsv(text){
   );
 }
 
-async function fetchSheet(sheetUrl,skip){
+async function fetchSheet(sheetUrl){
   // Route through server-side proxy to avoid CORS
   const proxyUrl = '/sheet-proxy?url=' + encodeURIComponent(sheetUrl);
   const r = await fetch(proxyUrl);
   if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
-  const t=await r.text();return parseCsv(skip?t.split(String.fromCharCode(10)).slice(skip).join(String.fromCharCode(10)):t);
+  return parseCsv(await r.text());
 }
 
-function gbp(n){n=String(n).replace(/[£,£]/g,"");
+function gbp(n){
   return '£' + (parseFloat(n)||0).toLocaleString('en-GB',
     {minimumFractionDigits:2, maximumFractionDigits:2});
 }
@@ -289,19 +277,18 @@ function showError(title, msg){
 
 function renderDashboard(partner, rows){
   const rate    = parseFloat(partner[C.rate]) || 20;
-  rows=rows.filter(r=>r[D.entity]&&r[D.entity].trim()!="TOTALS"&&r[D.invoiceId]&&r[D.invoiceId].trim()!=="");
   const eligible = rows.filter(r => (r[D.eligible]||'').trim() === 'Yes');
-  const earned   = eligible.reduce((s,r) => s + (parseFloat(String(r[D.commAmt]||0).replace(/[£,]/g,""))||0), 0);
+  const earned   = eligible.reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
   const paid     = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Paid')
-                            .reduce((s,r) => s + (parseFloat(String(r[D.commAmt]||0).replace(/[£,]/g,""))||0), 0);
+                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
   const pending  = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Pending')
-                            .reduce((s,r) => s + (parseFloat(String(r[D.commAmt]||0).replace(/[£,]/g,""))||0), 0);
+                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
 
   // Client breakdown
   const byClient = {};
   eligible.forEach(r => {
     const k = (r[D.entity]||'Unknown').trim();
-    byClient[k] = (byClient[k]||0) + (parseFloat(String(r[D.commAmt]||0).replace(/[£,]/g,""))||0);
+    byClient[k] = (byClient[k]||0) + (parseFloat(r[D.commAmt])||0);
   });
   const clients = Object.entries(byClient).sort((a,b) => b[1]-a[1]);
   const maxAmt  = clients[0]?.[1] || 1;
@@ -321,7 +308,7 @@ function renderDashboard(partner, rows){
       <td>${dt(r[D.invoiceDate])}</td>
       <td>${dt(r[D.payDate])}</td>
       <td style="text-align:right">${gbp(r[D.amtExVAT])}</td>
-      <td style="text-align:right">${(parseFloat(String(r[D.commAmt]||0).replace(/[£,]/g,""))||0)>0 ? gbp(r[D.commAmt]) : '—'}</td>
+      <td style="text-align:right">${(parseFloat(r[D.commAmt])||0)>0 ? gbp(r[D.commAmt]) : '—'}</td>
       <td>${dt(r[D.commPayDate])}</td>
       <td>${statusPill(r[D.commStatus])}</td>
     </tr>`).join('');
@@ -337,7 +324,7 @@ function renderDashboard(partner, rows){
       </div>
     </div>`).join('');
 
-  const totalExVAT = rows.reduce((s,r) => s+(parseFloat(String(r[D.amtExVAT]||0).replace(/[£,]/g,""))||0), 0);
+  const totalExVAT = rows.reduce((s,r) => s+(parseFloat(r[D.amtExVAT])||0), 0);
   const excluded   = rows.length - eligible.length;
 
   document.getElementById('app').innerHTML = `
@@ -393,12 +380,11 @@ function renderDashboard(partner, rows){
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody id="inv-tbody">
+            <tbody>
               ${tableRows || `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No records found</td></tr>`}
             </tbody>
           </table>
         </div>
-        <div class="pagination" id="pagination"></div>
       </div>
 
       <div class="right-col">
@@ -432,37 +418,6 @@ function renderDashboard(partner, rows){
       <span>Data refreshes on every page load</span>
     </div>
   </div>`;
-
-  // Set up pagination after DOM is ready
-  if(rows.length > 0) setupPagination();
-}
-
-function setupPagination(){
-  const PAGE_SIZE = 10;
-  const tbody = document.getElementById('inv-tbody');
-  const pg    = document.getElementById('pagination');
-  if(!tbody || !pg) return;
-  const allRows = Array.from(tbody.querySelectorAll('tr'));
-  const total   = allRows.length;
-  if(total <= PAGE_SIZE){ pg.style.display='none'; return; }
-  let page = 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  function render(){
-    allRows.forEach((tr, i) => {
-      tr.style.display = (i >= page*PAGE_SIZE && i < (page+1)*PAGE_SIZE) ? '' : 'none';
-    });
-    const start = page*PAGE_SIZE + 1;
-    const end   = Math.min((page+1)*PAGE_SIZE, total);
-    pg.innerHTML = `
-      <span class="pg-info">Showing ${start}–${end} of ${total}</span>
-      <div class="pg-btns">
-        <button class="pg-btn" id="pg-prev" ${page===0?'disabled':''}>← Previous</button>
-        <button class="pg-btn" id="pg-next" ${page===totalPages-1?'disabled':''}>Next →</button>
-      </div>`;
-    document.getElementById('pg-prev').addEventListener('click', ()=>{ page--; render(); });
-    document.getElementById('pg-next').addEventListener('click', ()=>{ page++; render(); });
-  }
-  render();
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -504,38 +459,6 @@ async function boot(){
     return;
   }
 
-  // Password check
-  const requiredPass = (partner[C.password]||'').trim();
-  if(requiredPass){
-    const stored = sessionStorage.getItem('sp_'+slug);
-    if(stored !== requiredPass){
-      document.getElementById('app').innerHTML = `
-        <div class="state" style="min-height:100vh">
-          <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:2rem 2.5rem;width:320px;text-align:center">
-            <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:8px">Partner Portal</div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:1.5rem">Enter your access password</div>
-            <input id="pass-input" type="password" placeholder="Password" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;outline:none">
-            <button id="pass-btn" style="width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Access Dashboard</button>
-            <div id="pass-err" style="color:#9b2c2c;font-size:12px;margin-top:8px"></div>
-          </div>
-        </div>`;
-      document.getElementById('sb-av').textContent = 'S';
-      document.getElementById('sb-name').textContent = 'Partner Portal';
-      const check = () => {
-        const val = document.getElementById('pass-input').value;
-        if(val === requiredPass){
-          sessionStorage.setItem('sp_'+slug, val);
-          boot();
-        } else {
-          document.getElementById('pass-err').textContent = 'Incorrect password';
-        }
-      };
-      document.getElementById('pass-btn').addEventListener('click', check);
-      document.getElementById('pass-input').addEventListener('keydown', e => { if(e.key==='Enter') check(); });
-      return;
-    }
-  }
-
   // Update sidebar immediately with name while data loads
   document.getElementById('sb-av').textContent   = av(partner[C.name]);
   document.getElementById('sb-name').textContent = partner[C.name];
@@ -553,7 +476,7 @@ async function boot(){
   // Step 4: load the partner's commission data
   let rows;
   try {
-    rows = await fetchSheet(partner[C.url].trim(),4);
+    rows = await fetchSheet(partner[C.url].trim());
   } catch(e){
     showError('Could not load commission data',
       `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);

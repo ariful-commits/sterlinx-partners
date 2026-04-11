@@ -159,6 +159,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 </style>
 </head>
 <body>
+<div id="staging-banner" style="background:#f59e0b;color:#000;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;letter-spacing:0.05em;position:sticky;top:0;z-index:9999;">
+  ⚠ STAGING — Not live data &nbsp;·&nbsp; <a href="https://partners.sterlinxglobal.com" style="color:#000;text-decoration:underline;">Go to Production →</a>
+</div>
 
 <aside class="sidebar">
   <div class="logo">
@@ -215,7 +218,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
-const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTuxFpKKoRDxHuIyaws-eIX2Oy6J3bx2eO1yrKJLmhWi69_fTdcS2F6ZjhO1XSxKoNcMiD7WiAL3X2e/pub?gid=0&single=true&output=csv';
+const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQBjSjoJK_VTgBKzGc5_NBNxmPDEPhJB99fxULVMF1B1Xn0SeGbG9Yu_leUq49K9VasFMKYwVMDl43k/pub?gid=614516397&single=true&output=csv';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -267,9 +270,8 @@ function parseCsv(text){
 }
 
 async function fetchSheet(sheetUrl,skip){
-  // Route through server-side proxy to avoid CORS
-  const proxyUrl = '/sheet-proxy?url=' + encodeURIComponent(sheetUrl);
-  const r = await fetch(proxyUrl);
+  // Direct fetch — Google Sheets published CSV URLs are CORS-open
+  const r = await fetch(sheetUrl);
   if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
   const t=await r.text();return parseCsv(skip?t.split(String.fromCharCode(10)).slice(skip).join(String.fromCharCode(10)):t);
 }

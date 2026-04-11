@@ -301,7 +301,7 @@ function getStatus(row){
 }
 function statusPill(status){
   if(status==='Paid') return '<span class="pill pill-paid">Paid</span>';
-  if(status==='Due for Payment') return '<span class="pill pill-due">Due for Payment</span>';
+  if(status==='Due for Payment') return '<span class="pill pill-due">Due</span>';
   return '<span class="pill pill-notdue">Not Due</span>';
 }
 
@@ -441,7 +441,7 @@ function renderDashboard(partner, rows){
         <div class="filter-bar" id="filter-bar">
           <button class="filter-btn active" data-filter="All">All</button>
           <button class="filter-btn" data-filter="Paid">Paid</button>
-          <button class="filter-btn" data-filter="Due for Payment">Due for Payment</button>
+          <button class="filter-btn" data-filter="Due for Payment">Due</button>
           <button class="filter-btn" data-filter="Not Due">Not Due</button>
         </div>
         <div class="tbl-wrap">

@@ -206,12 +206,14 @@ skipped by `fetchSheet(..., 4)`. Row 5 is the header row.
 | `EntityName` | `entity` | Client / company name |
 | `InvoiceID` | `invoiceId` | Invoice reference number |
 | `InvoiceDate` | `invoiceDate` | Date invoice was raised (DD/MM/YYYY) |
-| `InvoicePaymentDate` | `payDate` | Date client paid the invoice (DD/MM/YYYY) |
+| `InvoicePaymentDate` | `payDate` | Date client paid the invoice (DD/MM/YYYY) — entered manually |
+| `PaymentDueDate` | `commDueDate` | Auto-calculated: `=D+30` — 30 days after client payment |
+| `AmountReceived` | — | Invoice amount received (£) |
 | `AmountExVAT` | `amtExVAT` | Invoice amount excluding VAT (£) |
-| `CommissionAmount` | `commAmt` | Commission amount due to partner (£) |
-| `CommissionDueDate` | `commDueDate` | Date commission becomes due (DD/MM/YYYY) |
-| `CommissionPaidDate` | `commPaidDate` | Date commission was paid to partner (DD/MM/YYYY) |
+| `CommissionAmount` | `commAmt` | Auto-calculated: `=G×20%` — commission due to partner (£) |
+| `CommissionPaidDate` | `commPaidDate` | Date commission was paid to partner (DD/MM/YYYY) — entered manually |
 | `PartnersInvoiceID` | `partnerRef` | Partner's own invoice reference (shown when Paid) |
+| `Internal Notes` | — | Staff-only notes, not shown on dashboard |
 
 ---
 
@@ -223,18 +225,21 @@ Commission status is derived entirely from dates — there is no manual status c
 getStatus(row):
   if CommissionPaidDate has any value
     → "Paid"
-  else if CommissionDueDate is a valid date AND today >= CommissionDueDate
+  else if PaymentDueDate is a valid date AND today >= PaymentDueDate
     → "Due for Payment"
   else
     → "Not Due"
 ```
 
+`PaymentDueDate` (column E) is auto-calculated in the sheet as `=D+30` (30 days after the
+client payment date). `CommissionDueDate` no longer exists as a column.
+
 Dates are parsed as DD/MM/YYYY (Google Sheets default UK format).
 
 | Status | Badge colour | Meaning |
 |--------|-------------|---------|
-| Not Due | Amber | Commission due date is in the future |
-| Due for Payment | Green | Due date has passed, not yet paid |
+| Not Due | Amber | PaymentDueDate is in the future (or blank) |
+| Due for Payment | Green | PaymentDueDate has passed, CommissionPaidDate is blank |
 | Paid | Blue/navy | CommissionPaidDate column has a date |
 
 ---

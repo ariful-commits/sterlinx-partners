@@ -50,17 +50,19 @@ Open the partner's Google Sheet and add a row beneath the existing data (below t
 
 Fill in the following columns:
 
-| Column | Field | Example |
+| Column | Field | Example / Notes |
 |--------|-------|---------|
 | A | `EntityName` | `Noctur Ltd` |
 | B | `InvoiceID` | `Inv 91800` |
 | C | `InvoiceDate` | `15/04/2026` |
 | D | `InvoicePaymentDate` | `20/04/2026` (fill when client pays) |
-| E | `AmountExVAT` | `£690.00` |
-| F | `CommissionAmount` | `£138.00` |
-| G | `CommissionDueDate` | `20/05/2026` (30 days after client pays) |
-| H | `CommissionPaidDate` | *(leave blank until paid)* |
-| I | `PartnersInvoiceID` | *(leave blank until paid)* |
+| E | `PaymentDueDate` | *(auto-calculated — do not edit)* |
+| F | `AmountReceived` | `£828.00` |
+| G | `AmountExVAT` | `£690.00` |
+| H | `CommissionAmount` | *(auto-calculated — do not edit)* |
+| I | `CommissionPaidDate` | *(leave blank until paid)* |
+| J | `PartnersInvoiceID` | *(leave blank until paid)* |
+| K | `Internal Notes` | *(optional — staff only)* |
 
 **Date format:** always DD/MM/YYYY.
 
@@ -74,8 +76,8 @@ When you pay a partner their commission:
 
 1. Open their Google Sheet
 2. Find the relevant invoice row
-3. Enter the payment date in **column H (`CommissionPaidDate`)** — format: `DD/MM/YYYY`
-4. Optionally enter the partner's invoice reference in **column I (`PartnersInvoiceID`)**
+3. Enter the payment date in **column I (`CommissionPaidDate`)** — format: `DD/MM/YYYY`
+4. Optionally enter the partner's invoice reference in **column J (`PartnersInvoiceID`)**
 
 The status will automatically change from **Due for Payment** → **Paid** on the dashboard.
 The Partner Ref value only appears on the dashboard once status is Paid.
@@ -184,13 +186,15 @@ Row 5 of each partner's sheet is the header row. Rows 1–4 are metadata (skippe
 |-----|--------|----------|-------|
 | A | `EntityName` | Yes | Client company name |
 | B | `InvoiceID` | Yes | Must be non-empty for row to appear |
-| C | `InvoiceDate` | Yes | DD/MM/YYYY |
-| D | `InvoicePaymentDate` | Yes | DD/MM/YYYY — when client paid Sterlinx |
-| E | `AmountExVAT` | Yes | Invoice value ex VAT, e.g. `£690.00` |
-| F | `CommissionAmount` | Yes | Partner's commission, e.g. `£138.00` |
-| G | `CommissionDueDate` | Yes | When commission is owed to partner (DD/MM/YYYY) |
-| H | `CommissionPaidDate` | — | Fill when paid — **triggers Paid status** |
-| I | `PartnersInvoiceID` | — | Partner's own invoice ref, shown on dashboard when Paid |
+| C | `InvoiceDate` | Yes | DD/MM/YYYY — when invoice was raised |
+| D | `InvoicePaymentDate` | Yes | DD/MM/YYYY — when client paid Sterlinx (enter manually) |
+| E | `PaymentDueDate` | Yes | Auto-calculated: `=IF(D6="","",D6+30)` — do not edit manually |
+| F | `AmountReceived` | — | Invoice amount received (£) |
+| G | `AmountExVAT` | Yes | Invoice value ex VAT, e.g. `£690.00` |
+| H | `CommissionAmount` | Yes | Auto-calculated: `=G×20%` — partner's commission |
+| I | `CommissionPaidDate` | — | Fill when paid — **triggers Paid status** (DD/MM/YYYY) |
+| J | `PartnersInvoiceID` | — | Partner's own invoice ref, shown on dashboard when Paid |
+| K | `Internal Notes` | — | Staff-only notes, not shown on partner dashboard |
 
 Any row where `EntityName` is blank, `InvoiceID` is blank, or `EntityName` equals `TOTALS`
 is automatically excluded from the dashboard.
@@ -203,8 +207,8 @@ Status is calculated automatically from the dates — do not add a manual status
 
 | Status | Shown when | Badge colour |
 |--------|-----------|-------------|
-| **Not Due** | `CommissionDueDate` is in the future (or blank) | Amber |
-| **Due for Payment** | `CommissionDueDate` has passed and `CommissionPaidDate` is blank | Green |
+| **Not Due** | `PaymentDueDate` is in the future (or blank) | Amber |
+| **Due for Payment** | `PaymentDueDate` has passed and `CommissionPaidDate` is blank | Green |
 | **Paid** | `CommissionPaidDate` has any date value | Blue |
 
 ---

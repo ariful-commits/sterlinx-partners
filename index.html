@@ -147,10 +147,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .inv-tbl{font-size:12px;table-layout:fixed;width:100%}
   .inv-tbl td,.inv-tbl th{padding:8px 6px}
-  .inv-tbl th:nth-child(1),.inv-tbl td:nth-child(1){width:35%}
-  .inv-tbl th:nth-child(2),.inv-tbl td:nth-child(2){width:20%}
-  .inv-tbl th:nth-child(6),.inv-tbl td:nth-child(6){min-width:80px;padding-right:12px;text-align:right}
-  .inv-tbl th:last-child,.inv-tbl td:last-child{min-width:70px;width:25%}
+  .inv-tbl th:nth-child(2),.inv-tbl td:nth-child(2){width:35%}
+  .inv-tbl th:nth-child(6),.inv-tbl td:nth-child(6){width:35%;min-width:80px;padding-right:12px;text-align:right}
+  .inv-tbl th:last-child,.inv-tbl td:last-child{width:30%;min-width:70px}
   .filter-bar{gap:5px}
   .filter-btn{padding:4px 10px;font-size:11px}
   .content-grid{grid-template-columns:1fr}
@@ -356,7 +355,7 @@ function makeRows(data){
   return data.map(r => {
     const status = getStatus(r);
     return `<tr data-status="${status}">
-      <td>${(r[D.entity]||'—').trim()}</td>
+      <td class="col-hide-mobile">${(r[D.entity]||'—').trim()}</td>
       <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
       <td class="col-hide-mobile">${dt(r[D.invoiceDate])}</td>
       <td class="col-hide-mobile">${dt(r[D.payDate])}</td>
@@ -454,12 +453,12 @@ function renderDashboard(partner, rows){
           <table class="inv-tbl">
             <thead>
               <tr>
-                <th class="sortable" data-sort="entity">Client<span class="sort-arrow"> ↕</span></th>
+                <th class="col-hide-mobile sortable" data-sort="entity">Client<span class="sort-arrow"> ↕</span></th>
                 <th class="sortable" data-sort="invoiceId">Invoice<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile sortable" data-sort="invoiceDate">Invoice date<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile sortable" data-sort="payDate">Payment date<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile sortable" style="text-align:right" data-sort="amtExVAT">Ex VAT<span class="sort-arrow"> ↕</span></th>
-                <th class="sortable" style="text-align:right" data-sort="commAmt">Commission<span class="sort-arrow"> ↕</span></th>
+                <th class="sortable" style="text-align:right" data-sort="commAmt">Earnings<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile sortable" data-sort="commDueDate">Due date<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile">Partner ref</th>
                 <th class="sortable" data-sort="status">Status<span class="sort-arrow"> ↕</span></th>

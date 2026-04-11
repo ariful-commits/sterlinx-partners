@@ -32,7 +32,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .nav-item.active{color:var(--accent2)}
 .nav-icon{font-size:13px;width:18px;text-align:center}
 .sidebar-footer{margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:1.25rem}
-.partner-chip{display:flex;align-items:center;gap:10px}
+.partner-chip{display:flex;align-items:center;gap:10px;margin-bottom:.75rem}
+.logout-btn{display:none;width:100%;padding:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;transition:all .15s}
+.logout-btn:hover{background:rgba(255,255,255,.12);color:var(--white)}
 .avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--navy);flex-shrink:0}
 .p-name{font-size:13px;color:var(--white);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p-role{font-size:10px;color:rgba(255,255,255,.35)}
@@ -73,10 +75,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 
 /* ── Invoice table ── */
 .tbl-wrap{overflow-x:auto}
-.inv-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.inv-tbl{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
 .inv-tbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;background:var(--off);border-bottom:1px solid var(--border);white-space:nowrap}
 .inv-tbl td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
 .inv-tbl tr:last-child td{border-bottom:none}
+.inv-tbl td:first-child,.inv-tbl th:first-child{width:160px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inv-tbl tbody tr:hover td{background:#fafaf8}
 .mono{font-family:monospace;font-size:12px;color:var(--sub)}
 
@@ -112,6 +115,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .state-sub{font-size:14px;color:var(--muted);max-width:400px;line-height:1.6}
 .state-sub code{background:var(--off);padding:2px 6px;border-radius:4px;font-size:12px;border:1px solid var(--border)}
 
+/* ── Pagination ── */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-top:1px solid var(--border)}
+.pg-btns{display:flex;gap:8px}
+.pg-btn{padding:5px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--white);color:var(--text);cursor:pointer;transition:all .15s}
+.pg-btn:hover:not(:disabled){background:var(--navy);color:var(--white);border-color:var(--navy)}
+.pg-btn:disabled{opacity:.4;cursor:default}
+.pg-info{font-size:12px;color:var(--muted)}
+
 /* ── Footer ── */
 .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
 
@@ -122,6 +133,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 /* ── Responsive ── */
 @media(max-width:900px){.sidebar{display:none}.main{margin-left:0;padding:1.25rem}.kpi-grid{grid-template-columns:repeat(2,1fr)}.content-grid{grid-template-columns:1fr}}
 @media(max-width:500px){.kpi-grid{grid-template-columns:1fr 1fr}.rate-pill{display:none}}
+.pill-due{background:#e8f5ee;color:#1a6b3c}.pill-due::before{background:#1a6b3c}
+.pill-notdue{background:#fff4e0;color:#8a5a00}.pill-notdue::before{background:#8a5a00}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-btn{padding:5px 14px;border:1px solid var(--border);border-radius:99px;background:var(--white);font-size:12px;cursor:pointer;color:var(--sub);transition:all .15s}
+.filter-btn.active{background:var(--navy);color:var(--white);border-color:var(--navy)}
 </style>
 </head>
 <body>
@@ -136,8 +152,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
   </div>
   <div class="nav-label">Menu</div>
   <a class="nav-item active" href="#"><span class="nav-icon">◈</span> Commission</a>
-  <a class="nav-item" href="#"><span class="nav-icon">○</span> Invoices</a>
-  <a class="nav-item" href="#"><span class="nav-icon">◇</span> Documents</a>
+  
+  
   <div class="sidebar-footer">
     <div class="partner-chip">
       <div class="avatar" id="sb-av">--</div>
@@ -146,6 +162,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
         <div class="p-role">Affiliate Partner</div>
       </div>
     </div>
+    <button class="logout-btn" id="logout-btn">Sign out</button>
   </div>
 </aside>
 
@@ -180,7 +197,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
-const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT00lvHvaF8VpcaoH0k2DDOIVMd9I9l5kBIiCJJ3umCk2vVohKTUQ0-jzSvG0hS8VMTGrBuwETgEOMY/pub?gid=0&single=true&output=csv';
+const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTuxFpKKoRDxHuIyaws-eIX2Oy6J3bx2eO1yrKJLmhWi69_fTdcS2F6ZjhO1XSxKoNcMiD7WiAL3X2e/pub?gid=0&single=true&output=csv';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -189,20 +206,21 @@ const C = {
   url:     'SheetURL',
   rate:    'CommissionRate',
   tab:     'SheetTab',
+  password: 'Password',
 };
 
 // ── Column headers in each partner's commission sheet ──
 // If you rename a column in a partner's sheet, update it here
 const D = {
-  entity:      'EntityName',
-  invoiceId:   'InvoiceID',
-  invoiceDate: 'InvoiceDate',
-  payDate:     'InvoicePaymentDate',
-  amtExVAT:    'AmountExVAT',
-  commAmt:     'CommissionAmount',
-  commStatus:  'CommissionStatus',
-  commPayDate: 'CommissionPayDate',
-  eligible:    'CommissionEligible',
+  entity:       'EntityName',
+  invoiceId:    'InvoiceID',
+  invoiceDate:  'InvoiceDate',
+  payDate:      'InvoicePaymentDate',
+  amtExVAT:     'AmountExVAT',
+  commAmt:      'CommissionAmount',
+  commDueDate:  'CommissionDueDate',
+  commPaidDate: 'CommissionPaidDate',
+  partnerRef:   'PartnersInvoiceID',
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -230,32 +248,47 @@ function parseCsv(text){
   );
 }
 
-async function fetchSheet(sheetUrl){
+async function fetchSheet(sheetUrl,skip){
   // Route through server-side proxy to avoid CORS
   const proxyUrl = '/sheet-proxy?url=' + encodeURIComponent(sheetUrl);
   const r = await fetch(proxyUrl);
   if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
-  return parseCsv(await r.text());
+  const t=await r.text();return parseCsv(skip?t.split(String.fromCharCode(10)).slice(skip).join(String.fromCharCode(10)):t);
 }
 
-function gbp(n){
+function gbp(n){n=String(n).replace(/[£,£]/g,"");
   return '£' + (parseFloat(n)||0).toLocaleString('en-GB',
     {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
+function pnum(v){ return parseFloat(String(v||0).replace(/[£,]/g,''))||0; }
+
 function dt(s){
   if(!s) return '—';
+  // Handle DD/MM/YYYY format from Google Sheets
+  const parts = s.split('/');
+  if(parts.length === 3){
+    const d = new Date(parts[2], parts[1]-1, parts[0]);
+    return isNaN(d) ? s : d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  }
   const d = new Date(s);
-  return isNaN(d) ? s : d.toLocaleDateString('en-GB',
-    {day:'2-digit', month:'short', year:'numeric'});
+  return isNaN(d) ? s : d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 }
 
+function getStatus(row){
+  const paid = (row[D.commPaidDate]||'').trim();
+  if(paid) return 'Paid';
+  const ds = (row[D.commDueDate]||'').trim();
+  const parts = ds.split('/');
+  const due = parts.length===3 ? new Date(parts[2],parts[1]-1,parts[0]) : new Date(ds);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return (!isNaN(due) && today >= due) ? 'Due for Payment' : 'Not Due';
+}
 function statusPill(status){
-  const s = (status||'').trim();
-  if(s === 'Paid')           return `<span class="pill pill-paid">Paid</span>`;
-  if(s === 'Pending')        return `<span class="pill pill-pending">Pending</span>`;
-  if(s === 'No Commission')  return `<span class="pill pill-nocomm">No commission</span>`;
-  return s ? `<span class="pill pill-nocomm">${s}</span>` : '—';
+  if(status==='Paid') return '<span class="pill pill-paid">Paid</span>';
+  if(status==='Due for Payment') return '<span class="pill pill-due">Due for Payment</span>';
+  return '<span class="pill pill-notdue">Not Due</span>';
 }
 
 function av(name){
@@ -275,43 +308,69 @@ function showError(title, msg){
     </div>`;
 }
 
-function renderDashboard(partner, rows){
-  const rate    = parseFloat(partner[C.rate]) || 20;
-  const eligible = rows.filter(r => (r[D.eligible]||'').trim() === 'Yes');
-  const earned   = eligible.reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
-  const paid     = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Paid')
-                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
-  const pending  = eligible.filter(r => (r[D.commStatus]||'').trim() === 'Pending')
-                            .reduce((s,r) => s + (parseFloat(r[D.commAmt])||0), 0);
+function showSignout(show){
+  const btn = document.getElementById('logout-btn');
+  if(btn) btn.style.display = show ? 'block' : 'none';
+}
 
-  // Client breakdown
+function showLanding(){
+  showSignout(false);
+  document.getElementById('sb-av').textContent  = 'S';
+  document.getElementById('sb-name').textContent = 'Partner Portal';
+  document.getElementById('app').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:2rem">
+      <div style="width:72px;height:72px;background:var(--navy);border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem;box-shadow:0 4px 20px rgba(10,25,47,.15)">
+        <span style="font-family:'DM Serif Display',serif;font-size:36px;color:#c9a84c;line-height:1">S</span>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--navy);margin-bottom:.75rem">Sterlinx Global Partner Portal</div>
+      <div style="font-size:14px;color:var(--muted);max-width:420px;line-height:1.7;margin-bottom:2rem">
+        This is a secure portal for Sterlinx Global affiliate partners. If you have been onboarded as a partner, please use the private URL provided to you.
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1.25rem 2rem;font-size:13px;color:var(--sub);max-width:380px">
+        <div style="font-weight:500;color:var(--text);margin-bottom:4px">Need your access link?</div>
+        <div>Contact us at <a href="mailto:info@sterlinxglobal.com" style="color:var(--navy);text-decoration:none;font-weight:500">info@sterlinxglobal.com</a></div>
+      </div>
+      <div style="margin-top:3rem;font-size:11px;color:var(--muted)">© Sterlinx Global Ltd</div>
+    </div>`;
+}
+
+function renderDashboard(partner, rows){
+  const rate = parseFloat(partner[C.rate]) || 20;
+  rows = rows.filter(r => r[D.entity] && r[D.entity].trim() !== 'TOTALS' && r[D.invoiceId] && r[D.invoiceId].trim() !== '');
+
+  const earned = rows.reduce((s,r) => s+pnum(r[D.commAmt]), 0);
+  const paid   = rows.filter(r => getStatus(r) === 'Paid').reduce((s,r) => s+pnum(r[D.commAmt]), 0);
+  const due    = rows.filter(r => getStatus(r) === 'Due for Payment').reduce((s,r) => s+pnum(r[D.commAmt]), 0);
+  const notDue = rows.filter(r => getStatus(r) === 'Not Due').reduce((s,r) => s+pnum(r[D.commAmt]), 0);
+
   const byClient = {};
-  eligible.forEach(r => {
+  rows.forEach(r => {
     const k = (r[D.entity]||'Unknown').trim();
-    byClient[k] = (byClient[k]||0) + (parseFloat(r[D.commAmt])||0);
+    byClient[k] = (byClient[k]||0) + pnum(r[D.commAmt]);
   });
   const clients = Object.entries(byClient).sort((a,b) => b[1]-a[1]);
   const maxAmt  = clients[0]?.[1] || 1;
 
-  // Update sidebar
   document.getElementById('sb-av').textContent   = av(partner[C.name]);
   document.getElementById('sb-name').textContent = partner[C.name];
   document.title = `${partner[C.name]} · Sterlinx Partner Portal`;
 
-  const now = new Date().toLocaleDateString('en-GB',
-    {day:'2-digit', month:'long', year:'numeric'});
+  const now = new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'long', year:'numeric'});
 
-  const tableRows = rows.map(r => `
-    <tr>
+  const makeRows = (data) => data.map(r => {
+    const status = getStatus(r);
+    return `<tr data-status="${status}">
       <td>${(r[D.entity]||'—').trim()}</td>
       <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
       <td>${dt(r[D.invoiceDate])}</td>
       <td>${dt(r[D.payDate])}</td>
-      <td style="text-align:right">${gbp(r[D.amtExVAT])}</td>
-      <td style="text-align:right">${(parseFloat(r[D.commAmt])||0)>0 ? gbp(r[D.commAmt]) : '—'}</td>
-      <td>${dt(r[D.commPayDate])}</td>
-      <td>${statusPill(r[D.commStatus])}</td>
-    </tr>`).join('');
+      <td style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
+      <td style="text-align:right">${pnum(r[D.commAmt])>0 ? gbp(r[D.commAmt]) : '—'}</td>
+      <td>${dt(r[D.commDueDate])}</td>
+      <td class="mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
+      <td>${statusPill(status)}</td>
+    </tr>`;
+  }).join('');
 
   const clientRows = clients.map(([name, amt]) => `
     <div class="client-item">
@@ -324,8 +383,7 @@ function renderDashboard(partner, rows){
       </div>
     </div>`).join('');
 
-  const totalExVAT = rows.reduce((s,r) => s+(parseFloat(r[D.amtExVAT])||0), 0);
-  const excluded   = rows.length - eligible.length;
+  const totalExVAT = rows.reduce((s,r) => s+pnum(r[D.amtExVAT]), 0);
 
   document.getElementById('app').innerHTML = `
   <div>
@@ -346,17 +404,17 @@ function renderDashboard(partner, rows){
       <div class="kpi-card c-paid">
         <div class="kpi-label">Paid to you</div>
         <div class="kpi-value">${gbp(paid)}</div>
-        <div class="kpi-note">${eligible.filter(r=>(r[D.commStatus]||'').trim()==='Paid').length} invoices settled</div>
+        <div class="kpi-note">${rows.filter(r=>getStatus(r)==='Paid').length} invoices settled</div>
       </div>
       <div class="kpi-card c-pend">
-        <div class="kpi-label">Pending</div>
-        <div class="kpi-value">${gbp(pending)}</div>
-        <div class="kpi-note">Due 30 days after client pays</div>
+        <div class="kpi-label">Due for payment</div>
+        <div class="kpi-value">${gbp(due)}</div>
+        <div class="kpi-note">${rows.filter(r=>getStatus(r)==='Due for Payment').length} invoices due</div>
       </div>
       <div class="kpi-card c-count">
-        <div class="kpi-label">Eligible invoices</div>
-        <div class="kpi-value">${eligible.length}</div>
-        <div class="kpi-note">${excluded} excluded (govt fees)</div>
+        <div class="kpi-label">Not due yet</div>
+        <div class="kpi-value">${gbp(notDue)}</div>
+        <div class="kpi-note">${rows.filter(r=>getStatus(r)==='Not Due').length} awaiting due date</div>
       </div>
     </div>
 
@@ -365,6 +423,12 @@ function renderDashboard(partner, rows){
         <div class="card-head">
           <span class="card-title">Invoice breakdown</span>
           <span class="card-badge">${rows.length} records</span>
+        </div>
+        <div class="filter-bar" id="filter-bar">
+          <button class="filter-btn active" data-filter="All">All</button>
+          <button class="filter-btn" data-filter="Paid">Paid</button>
+          <button class="filter-btn" data-filter="Due for Payment">Due for Payment</button>
+          <button class="filter-btn" data-filter="Not Due">Not Due</button>
         </div>
         <div class="tbl-wrap">
           <table class="inv-tbl">
@@ -376,15 +440,17 @@ function renderDashboard(partner, rows){
                 <th>Payment date</th>
                 <th style="text-align:right">Ex VAT</th>
                 <th style="text-align:right">Commission</th>
-                <th>Pay by</th>
+                <th>Due date</th>
+                <th>Partner ref</th>
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
-              ${tableRows || `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No records found</td></tr>`}
+            <tbody id="inv-tbody">
+              ${makeRows(rows) || `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">No records found</td></tr>`}
             </tbody>
           </table>
         </div>
+        <div class="pagination" id="pagination"></div>
       </div>
 
       <div class="right-col">
@@ -398,7 +464,7 @@ function renderDashboard(partner, rows){
           <div class="sum-row"><span class="sum-lbl">Total ex VAT</span><span class="sum-val">${gbp(totalExVAT)}</span></div>
           <div class="sum-row"><span class="sum-lbl">Commission earned</span><span class="sum-val">${gbp(earned)}</span></div>
           <div class="sum-row"><span class="sum-lbl">Paid to date</span><span class="sum-val" style="color:var(--paid-txt)">${gbp(paid)}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Outstanding</span><span class="sum-val" style="color:var(--pend-txt)">${gbp(pending)}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Outstanding</span><span class="sum-val" style="color:var(--pend-txt)">${gbp(due+notDue)}</span></div>
         </div>
 
         <div class="card">
@@ -418,6 +484,61 @@ function renderDashboard(partner, rows){
       <span>Data refreshes on every page load</span>
     </div>
   </div>`;
+
+  if(rows.length > 0) setupTable(rows);
+}
+
+function setupTable(rows){
+  const PAGE_SIZE = 10;
+  const tbody     = document.getElementById('inv-tbody');
+  const pg        = document.getElementById('pagination');
+  const filterBar = document.getElementById('filter-bar');
+  if(!tbody || !pg || !filterBar) return;
+
+  let activeFilter = 'All';
+  let page = 0;
+
+  function getFiltered(){
+    const allTr = Array.from(tbody.querySelectorAll('tr'));
+    if(activeFilter === 'All') return allTr;
+    return allTr.filter(tr => tr.dataset.status === activeFilter);
+  }
+
+  function render(){
+    const filtered = getFiltered();
+    const total = filtered.length;
+    Array.from(tbody.querySelectorAll('tr')).forEach(tr => tr.style.display = 'none');
+    filtered.forEach((tr, i) => {
+      tr.style.display = (i >= page*PAGE_SIZE && i < (page+1)*PAGE_SIZE) ? '' : 'none';
+    });
+    if(total <= PAGE_SIZE){
+      pg.style.display = 'none';
+    } else {
+      pg.style.display = '';
+      const totalPages = Math.ceil(total / PAGE_SIZE);
+      const start = page*PAGE_SIZE + 1;
+      const end   = Math.min((page+1)*PAGE_SIZE, total);
+      pg.innerHTML = `
+        <span class="pg-info">Showing ${start}–${end} of ${total}</span>
+        <div class="pg-btns">
+          <button class="pg-btn" id="pg-prev" ${page===0?'disabled':''}>← Previous</button>
+          <button class="pg-btn" id="pg-next" ${page===totalPages-1?'disabled':''}>Next →</button>
+        </div>`;
+      document.getElementById('pg-prev').addEventListener('click', ()=>{ page--; render(); });
+      document.getElementById('pg-next').addEventListener('click', ()=>{ page++; render(); });
+    }
+  }
+
+  filterBar.addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if(!btn) return;
+    activeFilter = btn.dataset.filter;
+    page = 0;
+    filterBar.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+  });
+
+  render();
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -426,11 +547,7 @@ function renderDashboard(partner, rows){
 async function boot(){
   const slug = getSlug();
 
-  if(!slug){
-    showError('No partner specified',
-      'Visit your personal URL — e.g. <code>partners.sterlinx.co.uk/anil-demir</code>');
-    return;
-  }
+  if(!slug){ showLanding(); return; }
 
   if(!CONFIG_SHEET_ID || CONFIG_SHEET_ID === 'YOUR_CONFIG_SHEET_ID_HERE'){
     showError('Not configured yet',
@@ -459,6 +576,39 @@ async function boot(){
     return;
   }
 
+  // Password check
+  const requiredPass = (partner[C.password]||'').trim();
+  if(requiredPass){
+    const stored = sessionStorage.getItem('sp_'+slug);
+    if(stored !== requiredPass){
+      showSignout(false);
+      document.getElementById('app').innerHTML = `
+        <div class="state" style="min-height:100vh">
+          <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:2rem 2.5rem;width:320px;text-align:center">
+            <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:8px">Partner Portal</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:1.5rem">Enter your access password</div>
+            <input id="pass-input" type="password" placeholder="Password" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;outline:none">
+            <button id="pass-btn" style="width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Access Dashboard</button>
+            <div id="pass-err" style="color:#9b2c2c;font-size:12px;margin-top:8px"></div>
+          </div>
+        </div>`;
+      document.getElementById('sb-av').textContent = 'S';
+      document.getElementById('sb-name').textContent = 'Partner Portal';
+      const check = () => {
+        const val = document.getElementById('pass-input').value;
+        if(val === requiredPass){
+          sessionStorage.setItem('sp_'+slug, val);
+          boot();
+        } else {
+          document.getElementById('pass-err').textContent = 'Incorrect password';
+        }
+      };
+      document.getElementById('pass-btn').addEventListener('click', check);
+      document.getElementById('pass-input').addEventListener('keydown', e => { if(e.key==='Enter') check(); });
+      return;
+    }
+  }
+
   // Update sidebar immediately with name while data loads
   document.getElementById('sb-av').textContent   = av(partner[C.name]);
   document.getElementById('sb-name').textContent = partner[C.name];
@@ -476,7 +626,7 @@ async function boot(){
   // Step 4: load the partner's commission data
   let rows;
   try {
-    rows = await fetchSheet(partner[C.url].trim());
+    rows = await fetchSheet(partner[C.url].trim(),4);
   } catch(e){
     showError('Could not load commission data',
       `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);
@@ -484,10 +634,16 @@ async function boot(){
   }
 
   // Step 5: render
+  showSignout(true);
   renderDashboard(partner, rows);
 }
 
 boot();
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  sessionStorage.clear();
+  window.location.reload();
+});
 </script>
 </body>
 </html>

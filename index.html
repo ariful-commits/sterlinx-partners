@@ -140,8 +140,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .filter-btn.active{background:var(--navy);color:var(--white);border-color:var(--navy)}
 @media(max-width:768px){
   .col-hide-mobile{display:none}
-  .inv-tbl{font-size:12px}
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .inv-tbl{font-size:12px;table-layout:fixed;width:100%}
   .inv-tbl td,.inv-tbl th{padding:8px 6px}
+  .inv-tbl th:nth-child(1),.inv-tbl td:nth-child(1){width:35%}
+  .inv-tbl th:nth-child(2),.inv-tbl td:nth-child(2){width:20%}
+  .inv-tbl th:last-child,.inv-tbl td:last-child{width:25%}
+  .inv-tbl th:nth-last-child(2),.inv-tbl td:nth-last-child(2){width:20%;text-align:right}
   .filter-bar{gap:5px}
   .filter-btn{padding:4px 10px;font-size:11px}
   .content-grid{grid-template-columns:1fr}
@@ -373,7 +378,7 @@ function renderDashboard(partner, rows){
       <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
       <td class="col-hide-mobile">${dt(r[D.invoiceDate])}</td>
       <td class="col-hide-mobile">${dt(r[D.payDate])}</td>
-      <td style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
+      <td class="col-hide-mobile" style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
       <td style="text-align:right">${pnum(r[D.commAmt])>0 ? gbp(r[D.commAmt]) : '—'}</td>
       <td class="col-hide-mobile">${dt(r[D.commDueDate])}</td>
       <td class="col-hide-mobile mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
@@ -447,7 +452,7 @@ function renderDashboard(partner, rows){
                 <th>Invoice</th>
                 <th class="col-hide-mobile">Invoice date</th>
                 <th class="col-hide-mobile">Payment date</th>
-                <th style="text-align:right">Ex VAT</th>
+                <th class="col-hide-mobile" style="text-align:right">Ex VAT</th>
                 <th style="text-align:right">Commission</th>
                 <th class="col-hide-mobile">Due date</th>
                 <th class="col-hide-mobile">Partner ref</th>

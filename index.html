@@ -734,7 +734,7 @@ async function boot(){
   // Step 4: load the partner's commission data
   let rows;
   try {
-    rows = await fetchSheet(partner[C.url].trim(),4);
+    rows = await fetchSheet(partner[C.url].trim(),0);
     console.log('Parsed rows:', JSON.stringify(rows.slice(0, 2), null, 2));
     console.log('Column map D:', JSON.stringify(D, null, 2));
   } catch(e){

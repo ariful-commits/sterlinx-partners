@@ -138,6 +138,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .filter-btn{padding:5px 14px;border:1px solid var(--border);border-radius:99px;background:var(--white);font-size:12px;cursor:pointer;color:var(--sub);transition:all .15s}
 .filter-btn.active{background:var(--navy);color:var(--white);border-color:var(--navy)}
+@media(max-width:768px){
+  .col-hide-mobile{display:none}
+  .inv-tbl{font-size:12px}
+  .inv-tbl td,.inv-tbl th{padding:8px 6px}
+  .filter-bar{gap:5px}
+  .filter-btn{padding:4px 10px;font-size:11px}
+  .content-grid{grid-template-columns:1fr}
+  .kpi-value{font-size:22px}
+}
 </style>
 </head>
 <body>
@@ -362,12 +371,12 @@ function renderDashboard(partner, rows){
     return `<tr data-status="${status}">
       <td>${(r[D.entity]||'—').trim()}</td>
       <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
-      <td>${dt(r[D.invoiceDate])}</td>
-      <td>${dt(r[D.payDate])}</td>
+      <td class="col-hide-mobile">${dt(r[D.invoiceDate])}</td>
+      <td class="col-hide-mobile">${dt(r[D.payDate])}</td>
       <td style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
       <td style="text-align:right">${pnum(r[D.commAmt])>0 ? gbp(r[D.commAmt]) : '—'}</td>
-      <td>${dt(r[D.commDueDate])}</td>
-      <td class="mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
+      <td class="col-hide-mobile">${dt(r[D.commDueDate])}</td>
+      <td class="col-hide-mobile mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
       <td>${statusPill(status)}</td>
     </tr>`;
   }).join('');
@@ -436,12 +445,12 @@ function renderDashboard(partner, rows){
               <tr>
                 <th>Client</th>
                 <th>Invoice</th>
-                <th>Invoice date</th>
-                <th>Payment date</th>
+                <th class="col-hide-mobile">Invoice date</th>
+                <th class="col-hide-mobile">Payment date</th>
                 <th style="text-align:right">Ex VAT</th>
                 <th style="text-align:right">Commission</th>
-                <th>Due date</th>
-                <th>Partner ref</th>
+                <th class="col-hide-mobile">Due date</th>
+                <th class="col-hide-mobile">Partner ref</th>
                 <th>Status</th>
               </tr>
             </thead>

@@ -252,10 +252,15 @@ function getSlug(){
   return window.location.hash.replace('#', '').split('/').filter(Boolean)[0] || null;
 }
 
-// Accepts any Google Sheets URL and extracts the Sheet ID
+// Accepts any Google Sheets URL — standard /d/ID or published /d/e/2PACX- format
 function extractId(url){
-  const m = (url||'').match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  return m ? m[1] : null;
+  if(!url) return null;
+  // Published CSV: /spreadsheets/d/e/2PACX-...
+  const pub = url.match(/spreadsheets\/d\/e\/(2PACX-[a-zA-Z0-9_-]+)/);
+  if(pub) return pub[1];
+  // Standard sheet ID: /spreadsheets/d/SHEET_ID
+  const std = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return std ? std[1] : null;
 }
 
 function parseCsv(text){

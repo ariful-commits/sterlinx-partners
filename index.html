@@ -735,6 +735,8 @@ async function boot(){
   let rows;
   try {
     rows = await fetchSheet(partner[C.url].trim(),4);
+    console.log('Parsed rows:', rows.slice(0, 3));
+    console.log('Column map D:', D);
   } catch(e){
     showError('Could not load commission data',
       `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);

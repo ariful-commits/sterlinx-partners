@@ -65,10 +65,23 @@ Same files, tracked in `main` branch. The server pulls from here on deployment.
 | `fetchSheet()` | Fetches a sheet via the server-side proxy, parses CSV with PapaParse |
 | `getStatus(row)` | Derives commission status from dates (see Status Logic below) |
 | `renderDashboard()` | Builds KPI cards, filter bar, invoice table, client breakdown |
-| `setupTable()` | Handles filter buttons + pagination |
+| `makeRows()` | Renders an array of data rows to HTML table rows (top-level, shared by initial render and sort/filter re-renders) |
+| `setupTable()` | Handles filter buttons, sortable column headers, and pagination |
 | `showLanding()` | Landing page shown when visiting root URL with no partner slug |
 | `showSignout()` | Shows/hides the sign-out button |
 | `boot()` | Entry point — loads config, finds partner, checks password, loads data |
+
+---
+
+## Frontend Features
+
+| Feature | Detail |
+|---------|--------|
+| **Status filter bar** | Four buttons — All, Paid, Due, Not Due — filter the invoice table in-place. Internal status values (`Due for Payment`) are unaffected by the display label. |
+| **Sortable columns** | Client, Invoice, Invoice date, Payment date, Ex VAT, Commission, Due date, Status columns are sortable. Click once = ascending (↑), again = descending (↓), third click = reset to original order. Sort persists across filter changes. Dates are sorted chronologically; currency columns sort numerically. |
+| **Pagination** | 10 rows per page. Pagination controls appear only when the current filter result exceeds 10 rows. Page resets to 1 on any sort or filter change. |
+| **Mobile responsive table** | On screens ≤768px, five columns are hidden (Invoice date, Payment date, Ex VAT, Due date, Partner ref). The four visible columns (Client, Invoice, Commission, Status) use fixed widths (35/20/20/25%). A horizontal scroll wrapper provides fallback if content overflows. |
+| **Password protection** | Each partner's dashboard requires a password (stored in the config sheet). Password is checked client-side and stored in `sessionStorage` — cleared automatically when the tab closes. |
 
 ---
 

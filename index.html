@@ -82,6 +82,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 .inv-tbl td:first-child,.inv-tbl th:first-child{width:160px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inv-tbl tbody tr:hover td{background:#fafaf8}
 .mono{font-family:monospace;font-size:12px;color:var(--sub)}
+.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+.sortable:hover{color:var(--text)}
+.sort-arrow{margin-left:4px;opacity:0.4;font-size:10px}
+.sortable.active .sort-arrow{opacity:1;color:var(--navy)}
 
 /* ── Pills ── */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;white-space:nowrap}
@@ -348,6 +352,23 @@ function showLanding(){
     </div>`;
 }
 
+function makeRows(data){
+  return data.map(r => {
+    const status = getStatus(r);
+    return `<tr data-status="${status}">
+      <td>${(r[D.entity]||'—').trim()}</td>
+      <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
+      <td class="col-hide-mobile">${dt(r[D.invoiceDate])}</td>
+      <td class="col-hide-mobile">${dt(r[D.payDate])}</td>
+      <td class="col-hide-mobile" style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
+      <td style="text-align:right">${pnum(r[D.commAmt])>0 ? gbp(r[D.commAmt]) : '—'}</td>
+      <td class="col-hide-mobile">${dt(r[D.commDueDate])}</td>
+      <td class="col-hide-mobile mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
+      <td>${statusPill(status)}</td>
+    </tr>`;
+  }).join('');
+}
+
 function renderDashboard(partner, rows){
   const rate = parseFloat(partner[C.rate]) || 20;
   rows = rows.filter(r => r[D.entity] && r[D.entity].trim() !== 'TOTALS' && r[D.invoiceId] && r[D.invoiceId].trim() !== '');
@@ -370,21 +391,6 @@ function renderDashboard(partner, rows){
   document.title = `${partner[C.name]} · Sterlinx Partner Portal`;
 
   const now = new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'long', year:'numeric'});
-
-  const makeRows = (data) => data.map(r => {
-    const status = getStatus(r);
-    return `<tr data-status="${status}">
-      <td>${(r[D.entity]||'—').trim()}</td>
-      <td class="mono">${(r[D.invoiceId]||'—').trim()}</td>
-      <td class="col-hide-mobile">${dt(r[D.invoiceDate])}</td>
-      <td class="col-hide-mobile">${dt(r[D.payDate])}</td>
-      <td class="col-hide-mobile" style="text-align:right">${pnum(r[D.amtExVAT])>0 ? gbp(r[D.amtExVAT]) : '—'}</td>
-      <td style="text-align:right">${pnum(r[D.commAmt])>0 ? gbp(r[D.commAmt]) : '—'}</td>
-      <td class="col-hide-mobile">${dt(r[D.commDueDate])}</td>
-      <td class="col-hide-mobile mono">${status === 'Paid' ? (r[D.partnerRef]||'—').trim() : '—'}</td>
-      <td>${statusPill(status)}</td>
-    </tr>`;
-  }).join('');
 
   const clientRows = clients.map(([name, amt]) => `
     <div class="client-item">
@@ -448,15 +454,15 @@ function renderDashboard(partner, rows){
           <table class="inv-tbl">
             <thead>
               <tr>
-                <th>Client</th>
-                <th>Invoice</th>
-                <th class="col-hide-mobile">Invoice date</th>
-                <th class="col-hide-mobile">Payment date</th>
-                <th class="col-hide-mobile" style="text-align:right">Ex VAT</th>
-                <th style="text-align:right">Commission</th>
-                <th class="col-hide-mobile">Due date</th>
+                <th class="sortable" data-sort="entity">Client<span class="sort-arrow"> ↕</span></th>
+                <th class="sortable" data-sort="invoiceId">Invoice<span class="sort-arrow"> ↕</span></th>
+                <th class="col-hide-mobile sortable" data-sort="invoiceDate">Invoice date<span class="sort-arrow"> ↕</span></th>
+                <th class="col-hide-mobile sortable" data-sort="payDate">Payment date<span class="sort-arrow"> ↕</span></th>
+                <th class="col-hide-mobile sortable" style="text-align:right" data-sort="amtExVAT">Ex VAT<span class="sort-arrow"> ↕</span></th>
+                <th class="sortable" style="text-align:right" data-sort="commAmt">Commission<span class="sort-arrow"> ↕</span></th>
+                <th class="col-hide-mobile sortable" data-sort="commDueDate">Due date<span class="sort-arrow"> ↕</span></th>
                 <th class="col-hide-mobile">Partner ref</th>
-                <th>Status</th>
+                <th class="sortable" data-sort="status">Status<span class="sort-arrow"> ↕</span></th>
               </tr>
             </thead>
             <tbody id="inv-tbody">
@@ -511,29 +517,88 @@ function setupTable(rows){
 
   let activeFilter = 'All';
   let page = 0;
+  let sortCol = null;
+  let sortDir = 'asc';
+
+  function parseDate(s){
+    if(!s) return null;
+    const parts = String(s).split('/');
+    if(parts.length === 3){
+      const d = new Date(parts[2], parts[1]-1, parts[0]);
+      return isNaN(d) ? null : d;
+    }
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  function getSortValue(row, col){
+    if(col === 'entity')      return (row[D.entity]||'').trim().toLowerCase();
+    if(col === 'invoiceId')   return (row[D.invoiceId]||'').trim().toLowerCase();
+    if(col === 'invoiceDate') return parseDate(row[D.invoiceDate]);
+    if(col === 'payDate')     return parseDate(row[D.payDate]);
+    if(col === 'amtExVAT')    return pnum(row[D.amtExVAT]);
+    if(col === 'commAmt')     return pnum(row[D.commAmt]);
+    if(col === 'commDueDate') return parseDate(row[D.commDueDate]);
+    if(col === 'status')      return getStatus(row);
+    return '';
+  }
+
+  function compare(a, b){
+    if(a === null && b === null) return 0;
+    if(a === null) return 1;
+    if(b === null) return -1;
+    if(a instanceof Date && b instanceof Date) return a - b;
+    if(typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b));
+  }
 
   function getFiltered(){
-    const allTr = Array.from(tbody.querySelectorAll('tr'));
-    if(activeFilter === 'All') return allTr;
-    return allTr.filter(tr => tr.dataset.status === activeFilter);
+    if(activeFilter === 'All') return rows.slice();
+    return rows.filter(r => getStatus(r) === activeFilter);
+  }
+
+  function getSorted(filteredRows){
+    if(!sortCol) return filteredRows;
+    return filteredRows.slice().sort((a, b) => {
+      const va = getSortValue(a, sortCol);
+      const vb = getSortValue(b, sortCol);
+      const cmp = compare(va, vb);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  function updateSortHeaders(){
+    document.querySelectorAll('.inv-tbl th[data-sort]').forEach(th => {
+      const arrow = th.querySelector('.sort-arrow');
+      if(!arrow) return;
+      if(th.dataset.sort === sortCol){
+        th.classList.add('active');
+        arrow.textContent = sortDir === 'asc' ? ' ↑' : ' ↓';
+      } else {
+        th.classList.remove('active');
+        arrow.textContent = ' ↕';
+      }
+    });
   }
 
   function render(){
     const filtered = getFiltered();
-    const total = filtered.length;
-    Array.from(tbody.querySelectorAll('tr')).forEach(tr => tr.style.display = 'none');
-    filtered.forEach((tr, i) => {
-      tr.style.display = (i >= page*PAGE_SIZE && i < (page+1)*PAGE_SIZE) ? '' : 'none';
-    });
+    const sorted   = getSorted(filtered);
+    const total    = sorted.length;
+    const start    = page * PAGE_SIZE;
+    const end      = Math.min(start + PAGE_SIZE, total);
+    const visible  = sorted.slice(start, end);
+
+    tbody.innerHTML = makeRows(visible) ||
+      `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">No records found</td></tr>`;
+
     if(total <= PAGE_SIZE){
       pg.style.display = 'none';
     } else {
       pg.style.display = '';
       const totalPages = Math.ceil(total / PAGE_SIZE);
-      const start = page*PAGE_SIZE + 1;
-      const end   = Math.min((page+1)*PAGE_SIZE, total);
       pg.innerHTML = `
-        <span class="pg-info">Showing ${start}–${end} of ${total}</span>
+        <span class="pg-info">Showing ${start+1}–${end} of ${total}</span>
         <div class="pg-btns">
           <button class="pg-btn" id="pg-prev" ${page===0?'disabled':''}>← Previous</button>
           <button class="pg-btn" id="pg-next" ${page===totalPages-1?'disabled':''}>Next →</button>
@@ -542,6 +607,24 @@ function setupTable(rows){
       document.getElementById('pg-next').addEventListener('click', ()=>{ page++; render(); });
     }
   }
+
+  document.querySelectorAll('.inv-tbl th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if(sortCol !== col){
+        sortCol = col;
+        sortDir = 'asc';
+      } else if(sortDir === 'asc'){
+        sortDir = 'desc';
+      } else {
+        sortCol = null;
+        sortDir = 'asc';
+      }
+      page = 0;
+      updateSortHeaders();
+      render();
+    });
+  });
 
   filterBar.addEventListener('click', e => {
     const btn = e.target.closest('.filter-btn');

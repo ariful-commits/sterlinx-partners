@@ -84,6 +84,43 @@ The Partner Ref value only appears on the dashboard once status is Paid.
 
 ---
 
+## Dashboard Features (Partner Guide)
+
+This section explains how partners use the dashboard. You can share this with new partners during onboarding.
+
+### Filtering invoices
+
+At the top of the invoice table there are four filter buttons:
+
+| Button | Shows |
+|--------|-------|
+| **All** | Every invoice logged |
+| **Paid** | Commissions already paid to you |
+| **Due** | Commissions overdue for payment |
+| **Not Due** | Upcoming commissions not yet payable |
+
+Click any button to filter the table. Click **All** to return to the full view.
+
+### Sorting columns
+
+Click any underlined column header to sort:
+
+- **First click** → ascending order (↑) — e.g. A to Z, oldest to newest, lowest to highest
+- **Second click** → descending order (↓) — e.g. Z to A, newest to oldest, highest to lowest
+- **Third click** → returns to original order
+
+Sorting works within the active filter — e.g. filter to **Due** then sort by **Commission** to see the largest overdue amount at the top. Sort resets to page 1 automatically.
+
+### Pagination
+
+If there are more than 10 records, the table shows 10 at a time with **← Previous** / **Next →** buttons. The page count resets when you change the filter or sort.
+
+### On mobile
+
+On phones, only four columns are shown: **Client**, **Invoice**, **Commission**, and **Status**. Swipe horizontally if any content is cut off.
+
+---
+
 ## Deploying a Code Change
 
 ### Who makes code changes

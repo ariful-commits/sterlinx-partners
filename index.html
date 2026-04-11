@@ -249,7 +249,7 @@ const D = {
 // ════════════════════════════════════════════════════════════════════
 
 function getSlug(){
-  return window.location.pathname.replace(/^\/+|\/+$/g, '') || null;
+  return window.location.hash.replace('#', '').split('/').filter(Boolean)[0] || null;
 }
 
 // Accepts any Google Sheets URL and extracts the Sheet ID

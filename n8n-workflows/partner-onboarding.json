@@ -1,0 +1,239 @@
+{
+  "updatedAt": "2026-04-12T03:28:38.093Z",
+  "createdAt": "2026-04-12T03:28:38.093Z",
+  "id": "U5Izw2YaiZ9uCsqi",
+  "name": "New Zoho Partner → Sheet + Welcome Email",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zoho-partner-created",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Generate Credentials",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const name = $input.first().json.body.Full_Name || $input.first().json.body.full_name;\nconst slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');\nconst password = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 4).toUpperCase();\nconst email = $input.first().json.body.Email || $input.first().json.body.email;\nconst contactId = $input.first().json.body.id;\nreturn [{ json: { name, slug, password, email, contactId } }];"
+      }
+    },
+    {
+      "id": "3",
+      "name": "Create Commission Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        750,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "title": "={{ $json.name }} Commission – Sterlinx"
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "DOsJmGy6243Mz0jB",
+          "name": "Sterlinx Google SA"
+        }
+      }
+    },
+    {
+      "id": "4",
+      "name": "Add Headers to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.spreadsheetId }}",
+        "sheetName": "Commission_Log",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "EntityName": "EntityName",
+            "InvoiceID": "InvoiceID",
+            "InvoiceDate": "InvoiceDate",
+            "InvoicePaymentDate": "InvoicePaymentDate",
+            "PaymentDueDate": "PaymentDueDate",
+            "AmountReceived": "AmountReceived",
+            "AmountExVAT": "AmountExVAT",
+            "CommissionAmount": "CommissionAmount",
+            "CommissionPaidDate": "CommissionPaidDate",
+            "PartnersInvoiceID": "PartnersInvoiceID",
+            "InternalNotes": "InternalNotes"
+          }
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "DOsJmGy6243Mz0jB",
+          "name": "Sterlinx Google SA"
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Add to Config Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": "13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk",
+        "sheetName": "Config",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "PartnerName": "={{ $('Generate Credentials').item.json.name }}",
+            "PartnerURL": "={{ $('Generate Credentials').item.json.slug }}",
+            "SheetURL": "=https://docs.google.com/spreadsheets/d/{{ $json.spreadsheetId }}/export?format=csv&gid=0",
+            "CommissionRate": "20",
+            "SheetTab": "Commission_Log",
+            "Password": "={{ $('Generate Credentials').item.json.password }}",
+            "CRMContactID": "={{ $('Generate Credentials').item.json.contactId }}"
+          }
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "DOsJmGy6243Mz0jB",
+          "name": "Sterlinx Google SA"
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1500,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.postmarkapp.com/email",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": "={\n  \"From\": \"noreply@sterlinxglobal.com\",\n  \"To\": \"{{ $('Generate Credentials').item.json.email }}\",\n  \"Subject\": \"Welcome to the Sterlinx Partner Portal\",\n  \"TextBody\": \"Hi {{ $('Generate Credentials').item.json.name }},\\n\\nYour partner portal is ready.\\n\\nURL: https://partners.sterlinxglobal.com/{{ $('Generate Credentials').item.json.slug }}\\nPassword: {{ $('Generate Credentials').item.json.password }}\\n\\nLog in any time to view your commission statements in real time.\\n\\nSterlinx Global Team\"\n}"
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f2UnXydQY3S3CRMd",
+          "name": "Postmark"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Credentials": {
+      "main": [
+        [
+          {
+            "node": "Create Commission Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Commission Sheet": {
+      "main": [
+        [
+          {
+            "node": "Add Headers to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Headers to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Add to Config Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Config Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "cd8574ed-4ee4-4071-9c51-a643b0134e8f",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-12T03:28:38.095Z",
+      "createdAt": "2026-04-12T03:28:38.095Z",
+      "role": "workflow:owner",
+      "workflowId": "U5Izw2YaiZ9uCsqi",
+      "projectId": "zF2SpvDGSrLTUTN9",
+      "project": {
+        "updatedAt": "2026-04-12T02:59:12.707Z",
+        "createdAt": "2026-03-18T02:32:49.495Z",
+        "id": "zF2SpvDGSrLTUTN9",
+        "name": "Ariful Islam <ariful@abis.co>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "b035e21e-a164-402b-9421-033afe5a28a0"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

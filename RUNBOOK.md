@@ -284,8 +284,10 @@ These are configured in Zoho Books and Zoho CRM under **Automation → Webhooks*
 
 | Event | Webhook URL |
 |-------|------------|
-| Invoice paid (Zoho Books) | `https://n8n.sterlinxglobal.com/webhook/zoho-invoice-paid` |
-| New partner contact created (Zoho CRM) | `https://n8n.sterlinxglobal.com/webhook/zoho-partner-created` |
+| Invoice paid (Zoho Books) | `https://n8n.sterlinxglobal.com/webhook/LyE90t70ctrWrBg5/webhook/zoho-invoice-paid` |
+| New partner contact created (Zoho CRM) | `https://n8n.sterlinxglobal.com/webhook/U5Izw2YaiZ9uCsqi/webhook/zoho-partner-created` |
+
+> **Note on URL format:** n8n registers webhooks with the workflow ID as a prefix (`/webhook/{workflowId}/webhook/{path}`). The short paths without the ID prefix return 404. Always use the full URLs above.
 
 The Zoho OAuth credential in n8n (`Zoho OAuth`, id `7gSiNWgQLxn7Ac2i`) must be connected.
 If it shows as disconnected, re-authorise it in n8n: **Credentials → Zoho OAuth → Reconnect**.

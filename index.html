@@ -6,6 +6,9 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="googlebot" content="noindex, nofollow">
 <title>Partner Portal · Sterlinx Global</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f1f3d">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -161,6 +164,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 </style>
 </head>
 <body>
+<div id="staging-banner" style="background:#f59e0b;color:#000;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;letter-spacing:0.05em;position:sticky;top:0;z-index:9999;">
+  ⚠ STAGING — Not live data &nbsp;·&nbsp; <a href="https://partners.sterlinxglobal.com" style="color:#000;text-decoration:underline;">Go to Production →</a>
+</div>
 
 <aside class="sidebar">
   <div class="logo">
@@ -217,7 +223,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);di
 //
 // ════════════════════════════════════════════════════════════════════
 const CONFIG_SHEET_ID = '13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk';
-const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTuxFpKKoRDxHuIyaws-eIX2Oy6J3bx2eO1yrKJLmhWi69_fTdcS2F6ZjhO1XSxKoNcMiD7WiAL3X2e/pub?gid=0&single=true&output=csv';
+const CONFIG_CSV_DIRECT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQBjSjoJK_VTgBKzGc5_NBNxmPDEPhJB99fxULVMF1B1Xn0SeGbG9Yu_leUq49K9VasFMKYwVMDl43k/pub?gid=614516397&single=true&output=csv';
 
 // ── Column headers in the config sheet (don't change unless you rename them) ──
 const C = {
@@ -248,13 +254,18 @@ const D = {
 // ════════════════════════════════════════════════════════════════════
 
 function getSlug(){
-  return window.location.pathname.replace(/^\/+|\/+$/g, '') || null;
+  return window.location.hash.replace('#', '').split('/').filter(Boolean)[0] || null;
 }
 
-// Accepts any Google Sheets URL and extracts the Sheet ID
+// Accepts any Google Sheets URL — standard /d/ID or published /d/e/2PACX- format
 function extractId(url){
-  const m = (url||'').match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  return m ? m[1] : null;
+  if(!url) return null;
+  // Published CSV: /spreadsheets/d/e/2PACX-...
+  const pub = url.match(/spreadsheets\/d\/e\/(2PACX-[a-zA-Z0-9_-]+)/);
+  if(pub) return pub[1];
+  // Standard sheet ID: /spreadsheets/d/SHEET_ID
+  const std = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return std ? std[1] : null;
 }
 
 function parseCsv(text){
@@ -269,11 +280,11 @@ function parseCsv(text){
 }
 
 async function fetchSheet(sheetUrl,skip){
-  // Route through server-side proxy to avoid CORS
-  const proxyUrl = '/sheet-proxy?url=' + encodeURIComponent(sheetUrl);
-  const r = await fetch(proxyUrl);
+  // Direct fetch — Google Sheets published CSV URLs are CORS-open
+  const r = await fetch(sheetUrl);
   if(!r.ok) throw new Error(`Could not load sheet (${r.status})`);
-  const t=await r.text();return parseCsv(skip?t.split(String.fromCharCode(10)).slice(skip).join(String.fromCharCode(10)):t);
+  const t = await r.text();
+  return parseCsv(skip?t.split(String.fromCharCode(10)).slice(skip).join(String.fromCharCode(10)):t);
 }
 
 function gbp(n){n=String(n).replace(/[£,£]/g,"");
@@ -725,7 +736,7 @@ async function boot(){
   // Step 4: load the partner's commission data
   let rows;
   try {
-    rows = await fetchSheet(partner[C.url].trim(),4);
+    rows = await fetchSheet(partner[C.url].trim(),0);
   } catch(e){
     showError('Could not load commission data',
       `The sheet for <strong>${partner[C.name]}</strong> couldn't be loaded. Make sure it's published as CSV.`);
@@ -734,6 +745,7 @@ async function boot(){
 
   // Step 5: render
   showSignout(true);
+  subscribeToPush(slug);
   renderDashboard(partner, rows);
 }
 
@@ -743,6 +755,54 @@ document.getElementById('logout-btn').addEventListener('click', () => {
   sessionStorage.clear();
   window.location.reload();
 });
+</script>
+<script>
+// ── PWA: Service Worker registration ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
+}
+
+// ── PWA: Push subscription (called after successful auth) ──
+async function subscribeToPush(slug) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Re-register existing subscription so server keeps it fresh
+      await fetch('/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, subscription: existing.toJSON() })
+      }).catch(() => {});
+      return;
+    }
+    const vapidResp = await fetch('/push-vapid-key');
+    if (!vapidResp.ok) return; // server not yet configured — fail silently
+    const { publicKey } = await vapidResp.json();
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    await fetch('/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, subscription: sub.toJSON() })
+    }).catch(() => {});
+  } catch (e) {
+    // Permission denied or any other error — non-fatal
+    console.warn('Push subscription skipped:', e.message);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
 </script>
 </body>
 </html>

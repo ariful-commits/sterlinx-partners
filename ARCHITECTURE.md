@@ -152,20 +152,35 @@ Browser                     Server (port 8080)              Google Sheets
 
 ### Zoho invoice paid → commission sheet (n8n Workflow A)
 
+11-node chain. Includes exclusion filter before any commission row is written.
+
 ```
-Zoho Books                  n8n (port 5678 → nginx 5679)       Google Sheets
+Zoho Books                  n8n (port 5678 → nginx 5679)       Zoho / Sheets / Server
   │                               │                               │
   │  POST /webhook/               │                               │
   │  zoho-invoice-paid            │                               │
   │ ─────────────────────────────>│                               │
+  │                               │  GET /books/v3/invoices/{id} │
+  │                               │ ─────────────────────>Zoho Books
+  │                               │  ← full invoice with line items
+  │                               │                               │
+  │                               │  Check Exclusion List (Code) │
+  │                               │  scan line item NAMES for:   │
+  │                               │  · confirmation statement    │
+  │                               │  · government fee            │
+  │                               │  · state fee                 │
+  │                               │  · irs fee                   │
+  │                               │  skip=true → STOP            │
+  │                               │  skip=false → continue       │
+  │                               │                               │
   │                               │  GET /crm/v3/Accounts/{id}   │
   │                               │ ─────────────────────>Zoho CRM│
-  │                               │  ← account + partner field   │
+  │                               │  ← account + Partners field  │
   │                               │                               │
-  │                               │  IF partner assigned         │
+  │                               │  IF Partners field non-empty │
   │                               │  fetch config sheet CSV      │
   │                               │ ─────────────────────────────>│
-  │                               │  parse → find partner slug   │
+  │                               │  parse → find partner row    │
   │                               │  append commission row       │
   │                               │ ─────────────────────────────>│
   │                               │                               │
@@ -177,21 +192,111 @@ Zoho Books                  n8n (port 5678 → nginx 5679)       Google Sheets
   │                               │  email to partner            │
 ```
 
+#### Commission exclusion logic
+
+The `Check Exclusion List` Code node scans **line item names only** (not descriptions or notes).
+`EXCLUDED_KEYWORDS` array at the top of the node:
+
+```javascript
+const EXCLUDED_KEYWORDS = [
+  'confirmation statement',
+  'government fee',
+  'state fee',
+  'irs fee'
+];
+```
+
+If any line item name contains one of these keywords (case-insensitive), `skip: true` is returned
+and the `Skip Check` IF node halts execution — no commission row is written.
+
 ### New Zoho partner → sheet + welcome email (n8n Workflow B)
 
+8-node chain. Includes `Contact_Type` guard before any sheet or email is created.
+
 ```
-Zoho CRM                    n8n                            Google Sheets / Postmark
+Zoho CRM                    n8n                            Zoho CRM / Sheets / Postmark
   │                               │                               │
   │  POST /webhook/               │                               │
   │  zoho-partner-created         │                               │
   │ ─────────────────────────────>│                               │
+  │                               │  GET /crm/v3/Contacts/{id}   │
+  │                               │ ─────────────────────>Zoho CRM│
+  │                               │  ← full contact record       │
+  │                               │                               │
+  │                               │  IF Contact_Type === Partner │
+  │                               │  ≠ Partner → STOP            │
+  │                               │  = Partner → continue        │
+  │                               │                               │
   │                               │  create commission sheet     │
   │                               │ ─────────────────────────────>│
+  │                               │  add column headers          │
   │                               │  update config sheet row     │
   │                               │ ─────────────────────────────>│
   │                               │  POST Postmark welcome email │
   │                               │ ─────────────────────────────>│
 ```
+
+---
+
+## Zoho CRM Field Setup
+
+Two custom fields power the automation chain:
+
+### Contact module — `Contact Type` (picklist)
+
+- **Values**: `Client`, `Partner`
+- **Default**: `Client`
+- Used by Workflow B to guard against creating portal accounts for non-partner contacts
+- Set to `Partner` when creating a new affiliate partner in Zoho CRM
+
+### Account module — `Partners` (single line text)
+
+- Stores the **CRM Contact ID** of the assigned partner for that client account
+- Used by Workflow A to look up which partner should receive the commission
+- Find the Contact ID from the partner's Zoho CRM contact URL
+- One account can have one assigned partner (single value field)
+
+### How the two fields work together
+
+```
+New partner contact (Contact_Type=Partner)
+         │
+         ▼ Workflow B fires
+  Creates Google Sheet + config row + sends welcome email
+         │
+         ▼ Staff action
+  Open each client Account in Zoho CRM
+  Paste partner's Contact ID into Partners field
+         │
+         ▼ On next paid invoice for that account
+  Workflow A fires → exclusion check → commission row written
+```
+
+---
+
+## Partner Setup Process (Two Steps)
+
+### Step 1 — Create the partner in Zoho CRM
+
+1. Zoho CRM → Contacts → **New Contact**
+2. Fill in: Full Name, Email address
+3. Set **Contact Type = Partner**
+4. Save
+
+n8n Workflow B fires automatically:
+- Creates the partner's Google Sheet
+- Adds their row to the production config sheet
+- Sends them a welcome email with their portal URL and password
+
+### Step 2 — Link the partner to their client accounts
+
+For each client account this partner manages:
+1. Open the client **Account** record in Zoho CRM
+2. Find the partner's **Contact ID** (visible in the partner's contact URL)
+3. Paste it into the **Partners** field on the Account record
+4. Save
+
+From this point, any paid invoice on that account triggers Workflow A and writes a commission row.
 
 ### Proxy caching
 

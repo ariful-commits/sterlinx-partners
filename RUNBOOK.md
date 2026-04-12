@@ -4,7 +4,40 @@ Operational guide for Sterlinx staff. No coding knowledge required for most task
 
 ---
 
-## Adding a New Partner
+## Adding a New Partner (Full Process — Automated)
+
+For partners managed through Zoho CRM, the portal account is created automatically by n8n.
+Use the manual process below only if bypassing automation.
+
+### Step 1 — Create the partner contact in Zoho CRM
+
+1. Zoho CRM → **Contacts** → **New Contact**
+2. Fill in: Full Name and Email address
+3. Set **Contact Type = Partner** *(this is what triggers the automation)*
+4. Click **Save**
+
+n8n Workflow B fires within seconds:
+- Creates the partner's Google Commission Sheet
+- Adds their row to the production config sheet (PartnerName, PartnerURL, SheetURL, Password, CRMContactID)
+- Sends them a welcome email with their portal URL and password
+
+### Step 2 — Link the partner to their client accounts
+
+For each client account the partner manages:
+1. Open the client **Account** record in Zoho CRM
+2. Find the partner's **Contact ID** — visible in the URL of their Zoho CRM contact record (the long number at the end)
+3. Paste the Contact ID into the **Partners** field on the Account record
+4. Save
+
+From this point, any paid invoice on that account triggers Workflow A and auto-writes a commission row.
+
+### Searching for partners in Zoho CRM
+
+Contacts → **Filter** → Contact Type = Partner → shows all partner contacts
+
+---
+
+## Adding a New Partner (Manual — Without Automation)
 
 ### Step 1 — Create the partner's Google Sheet
 
@@ -79,6 +112,32 @@ The dashboard refreshes on every page load — changes appear immediately.
 4. Optionally enter the partner's invoice reference in **column J (`PartnersInvoiceID`)**
 
 Status changes automatically from **Due for Payment** → **Paid** on the dashboard.
+
+---
+
+## Commission Exclusions
+
+Some invoice types should never generate a commission row (e.g. government fees, filings).
+n8n Workflow A checks line item **names** against an exclusion keyword list before writing any row.
+
+### Current excluded keywords
+
+| Keyword | Reason |
+|---------|--------|
+| `confirmation statement` | Companies House filing — not a billable service |
+| `government fee` | Government/statutory fees passed through to client |
+| `state fee` | US state filing fees |
+| `irs fee` | IRS fees passed through |
+
+Matching is case-insensitive and checks if the line item name **contains** the keyword.
+
+### Adding a new exclusion keyword
+
+1. Go to `https://n8n.sterlinxglobal.com`
+2. Open workflow **"Zoho Invoice Paid → Partner Commission Sheet"**
+3. Click the **"Check Exclusion List"** Code node
+4. Edit the `EXCLUDED_KEYWORDS` array at the top — add your new keyword in lowercase
+5. Click **Save** — takes effect immediately on the next webhook, no redeploy needed
 
 ---
 

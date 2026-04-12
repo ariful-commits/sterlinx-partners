@@ -1,5 +1,7 @@
 const CACHE_NAME = 'sterlinx-v1';
-const SHELL = ['/', '/index.html'];
+// self.location.pathname is e.g. '/service-worker.js' or '/sterlinx-partners/service-worker.js'
+const BASE = self.location.pathname.replace(/\/service-worker\.js$/, '') || '';
+const SHELL = [BASE + '/', BASE + '/index.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)));
@@ -26,8 +28,8 @@ self.addEventListener('push', e => {
   const title = data.title || 'Sterlinx Partner Portal';
   const options = {
     body: data.body || 'You have a new notification.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: BASE + '/icons/icon-192.png',
+    badge: BASE + '/icons/icon-192.png',
     data: { url: data.url || '/' }
   };
   e.waitUntil(self.registration.showNotification(title, options));

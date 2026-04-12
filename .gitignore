@@ -1,0 +1,6 @@
+node_modules/
+.env
+push-subscriptions.json
+sterlinx-partner-portal-*.json
+*.bak
+*.bak2

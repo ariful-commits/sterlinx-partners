@@ -4,8 +4,9 @@ const https=require("https");
 const webpush=require("web-push");
 
 // ── VAPID configuration ──────────────────────────────────────────────
-const VAPID_PUBLIC  = "BA6TsVJ1abNci43WcY_hcnWiAgqVDJQqSaXEpkPV-HBSL4nx1lck2XBfoOyDurp9DrrWG21jz7whfQYQklrgqSE";
-const VAPID_PRIVATE = "pUQfS-6RMCVGs_BB7j4UD1ldlaQYCsVXqEDHB4aHApw";
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+if(!VAPID_PUBLIC||!VAPID_PRIVATE){ console.error("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars are required"); process.exit(1); }
 webpush.setVapidDetails("mailto:admin@sterlinxglobal.com", VAPID_PUBLIC, VAPID_PRIVATE);
 
 // ── Push subscription store (persisted to disk) ──────────────────────

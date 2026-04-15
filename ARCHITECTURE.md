@@ -7,6 +7,11 @@ Each partner has a private URL (e.g. `partners.sterlinxglobal.com/anil-demir`). 
 a password, and the portal fetches their commission data live from a Google Sheet and renders
 it as a read-only dashboard. No backend database — Google Sheets is the source of truth.
 
+Built across three phases:
+- **Phase 1** — Core portal (SPA, Google Sheets backend, password auth, commission dashboard)
+- **Phase 2** — Zoho automation (n8n on Docker, invoice-paid → commission sheet, partner onboarding)
+- **Phase 3** — PWA + push notifications (installable app, service worker, VAPID push)
+
 ---
 
 ## Tech Stack
@@ -18,10 +23,15 @@ it as a read-only dashboard. No backend database — Google Sheets is the source
 | Reverse proxy / TLS | Cloudflare Tunnel (`cloudflared`) |
 | Frontend | Vanilla JS, PapaParse (CDN), no framework |
 | Data source | Google Sheets (published CSV) |
+| Automation | n8n (Docker container `n8nio/n8n`, persisted via `n8n_data` volume) |
+| Push notifications | `web-push` npm package (VAPID) |
+| Email | Postmark (HTTP API via n8n `httpHeaderAuth` credential) |
 | Hosting | Hetzner Cloud (CPX22) |
 | OS | Ubuntu 24.04 |
 | Repository | GitHub — `ariful-commits/sterlinx-partners` |
-| Public domain | `partners.sterlinxglobal.com` |
+| Staging | GitHub Pages — `https://ariful-commits.github.io/sterlinx-partners/` |
+| Production domain | `partners.sterlinxglobal.com` |
+| n8n domain | `n8n.sterlinxglobal.com` |
 
 ---
 
@@ -36,6 +46,7 @@ it as a read-only dashboard. No backend database — Google Sheets is the source
 | OS | Ubuntu 24.04 LTS |
 | SSH port | `2222` (restricted — see Security) |
 | App port | `8080` (localhost only, not exposed) |
+| n8n port | `5678` (Docker internal, proxied via nginx on `127.0.0.1:5679`) |
 
 ---
 
@@ -44,16 +55,40 @@ it as a read-only dashboard. No backend database — Google Sheets is the source
 ### On the server — `/var/www/sterlinx-partners/`
 
 ```
-index.html       Single-page application — all UI, logic, and CSS in one file
-server.js        Node.js HTTP server — serves index.html and proxies Google Sheets CSV
-deploy.sh        Deployment script — git pull + pm2 restart
-_redirects       Cloudflare Pages redirect rules (legacy, not used in current setup)
-README.md        Brief project notes
+index.html                  Single-page application — all UI, logic, and CSS in one file
+server.js                   Node.js HTTP server — serves index.html, proxies Google Sheets CSV, handles push endpoints
+deploy.sh                   Deployment script — git pull + pm2 restart
+manifest.json               PWA web app manifest (name, icons, display:standalone, theme_color)
+service-worker.js           PWA service worker — shell caching + push notification handler
+icons/
+  icon-192.png              PWA icon 192×192 (navy #0f1f3d)
+  icon-512.png              PWA icon 512×512 (navy #0f1f3d)
+push-subscriptions.json     Runtime file — push subscription store per partner slug (auto-created)
+node_modules/web-push/      VAPID push library
+robots.txt                  Blocks all search engine indexing
 ```
 
 ### In the GitHub repository — `ariful-commits/sterlinx-partners`
 
 Same files, tracked in `main` branch. The server pulls from here on deployment.
+
+Additional files in repo (not deployed):
+```
+n8n-workflows/
+  invoice-commission.json   Exported n8n Workflow A JSON
+  partner-onboarding.json   Exported n8n Workflow B JSON
+  README.md                 Workflow documentation
+ARCHITECTURE.md             This file
+RUNBOOK.md                  Operational runbook
+sterlinx-partner-portal-ad303f1c15bd.json  Google Service Account key (local only, not committed)
+```
+
+### Branches
+
+| Branch | Purpose | Deployed to |
+|--------|---------|-------------|
+| `main` | Production code | Hetzner server via `deploy.sh` |
+| `staging` | Testing with staging sheets | GitHub Pages (automatic on push) |
 
 ### Key sections inside `index.html`
 
@@ -65,10 +100,9 @@ Same files, tracked in `main` branch. The server pulls from here on deployment.
 | `fetchSheet()` | Fetches a sheet via the server-side proxy, parses CSV with PapaParse |
 | `getStatus(row)` | Derives commission status from dates (see Status Logic below) |
 | `renderDashboard()` | Builds KPI cards, filter bar, invoice table, client breakdown |
-| `makeRows()` | Renders an array of data rows to HTML table rows (top-level, shared by initial render and sort/filter re-renders) |
+| `makeRows()` | Renders an array of data rows to HTML table rows |
 | `setupTable()` | Handles filter buttons, sortable column headers, and pagination |
-| `showLanding()` | Landing page shown when visiting root URL with no partner slug |
-| `showSignout()` | Shows/hides the sign-out button |
+| `subscribeToPush(slug)` | Requests push permission after auth, registers subscription with `/push-subscribe` |
 | `boot()` | Entry point — loads config, finds partner, checks password, loads data |
 
 ---
@@ -77,52 +111,222 @@ Same files, tracked in `main` branch. The server pulls from here on deployment.
 
 | Feature | Detail |
 |---------|--------|
-| **Status filter bar** | Four buttons — All, Paid, Due, Not Due — filter the invoice table in-place. Internal status values (`Due for Payment`) are unaffected by the display label. |
-| **Sortable columns** | Client, Invoice, Invoice date, Payment date, Ex VAT, Commission, Due date, Status columns are sortable. Click once = ascending (↑), again = descending (↓), third click = reset to original order. Sort persists across filter changes. Dates are sorted chronologically; currency columns sort numerically. |
-| **Pagination** | 10 rows per page. Pagination controls appear only when the current filter result exceeds 10 rows. Page resets to 1 on any sort or filter change. |
-| **Mobile responsive table** | On screens ≤768px, five columns are hidden (Invoice date, Payment date, Ex VAT, Due date, Partner ref). The four visible columns (Client, Invoice, Commission, Status) use fixed widths (35/20/20/25%). A horizontal scroll wrapper provides fallback if content overflows. |
-| **Password protection** | Each partner's dashboard requires a password (stored in the config sheet). Password is checked client-side and stored in `sessionStorage` — cleared automatically when the tab closes. |
+| **Status filter bar** | Four buttons — All, Paid, Due, Not Due — filter the invoice table in-place |
+| **Sortable columns** | Client, Invoice, Invoice date, Payment date, Ex VAT, Commission, Due date, Status. Click once = ascending (↑), again = descending (↓), third click = reset. Dates sorted chronologically; currency numerically. |
+| **Pagination** | 10 rows per page. Controls appear only when filter result exceeds 10 rows. Resets to page 1 on sort/filter change. |
+| **Mobile responsive** | ≤768px: sidebar hidden, five columns hidden. Four columns visible (Client, Invoice, Commission, Status). Horizontal scroll fallback. |
+| **Password protection** | Password checked client-side against config sheet value. Stored in `sessionStorage` — cleared on tab close. |
+| **PWA / installable** | `manifest.json` + `service-worker.js` make the portal installable as a home-screen app on Android/iOS/desktop. |
+| **Push notifications** | After auth, browser subscribes via VAPID. Subscription stored per slug on server. n8n triggers push on new commission. |
 
 ---
 
 ## Data Flow
+
+### Page load and authentication
 
 ```
 Browser                     Server (port 8080)              Google Sheets
   │                               │                               │
   │  GET /anil-demir              │                               │
   │ ─────────────────────────────>│                               │
-  │  ← index.html                 │                               │
-  │                               │                               │
-  │  [JS: boot() runs]            │                               │
+  │  ← index.html + SW registered │                               │
   │                               │                               │
   │  GET /sheet-proxy?url=        │                               │
-  │  [config sheet CSV URL]       │                               │
-  │ ─────────────────────────────>│  https.get(config sheet URL)  │
-  │                               │ ─────────────────────────────>│
-  │                               │  ← CSV (2-min cache)          │
-  │  ← CSV text                   │                               │
+  │  [config sheet CSV URL]       │  https.get(config sheet URL)  │
+  │ ─────────────────────────────>│ ─────────────────────────────>│
+  │  ← CSV (2-min cache)          │                               │
   │                               │                               │
   │  [PapaParse → find partner,   │                               │
   │   check password]             │                               │
   │                               │                               │
-  │  GET /sheet-proxy?url=        │                               │
-  │  [partner commission CSV URL] │                               │
-  │ ─────────────────────────────>│  https.get(partner sheet URL) │
-  │                               │ ─────────────────────────────>│
-  │                               │  ← CSV (2-min cache)          │
-  │  ← CSV text (skip 4 header    │                               │
-  │    metadata rows)             │                               │
+  │  GET /sheet-proxy?url=        │  https.get(partner sheet URL) │
+  │  [partner commission CSV]     │ ─────────────────────────────>│
+  │  ← CSV (skip 4 metadata rows) │                               │
   │                               │                               │
-  │  [PapaParse → renderDashboard]│                               │
+  │  [renderDashboard()]          │                               │
+  │                               │                               │
+  │  POST /push-subscribe         │  store subscription           │
+  │  {slug, subscription}         │  → push-subscriptions.json    │
 ```
+
+### Zoho invoice paid → commission sheet (n8n Workflow A)
+
+11-node chain. Includes exclusion filter before any commission row is written.
+
+```
+Zoho Books                  n8n (port 5678 → nginx 5679)       Zoho / Sheets / Server
+  │                               │                               │
+  │  POST /webhook/               │                               │
+  │  zoho-invoice-paid            │                               │
+  │ ─────────────────────────────>│                               │
+  │                               │  GET /books/v3/invoices/{id} │
+  │                               │ ─────────────────────>Zoho Books
+  │                               │  ← full invoice with line items
+  │                               │                               │
+  │                               │  Check Exclusion List (Code) │
+  │                               │  scan line item NAMES for:   │
+  │                               │  · confirmation statement    │
+  │                               │  · government fee            │
+  │                               │  · state fee                 │
+  │                               │  · irs fee                   │
+  │                               │  skip=true → STOP            │
+  │                               │  skip=false → continue       │
+  │                               │                               │
+  │                               │  GET /crm/v3/Accounts/{id}   │
+  │                               │ ─────────────────────>Zoho CRM│
+  │                               │  ← account + Partners field  │
+  │                               │                               │
+  │                               │  IF Partners field non-empty │
+  │                               │  fetch config sheet CSV      │
+  │                               │ ─────────────────────────────>│
+  │                               │  parse → find partner row    │
+  │                               │  append commission row       │
+  │                               │ ─────────────────────────────>│
+  │                               │                               │
+  │                               │  POST /push-notify           │
+  │                               │ ──>server:8080               │
+  │                               │  ← push sent to partner      │
+  │                               │                               │
+  │                               │  POST Postmark API           │
+  │                               │  email to partner            │
+```
+
+#### Commission exclusion logic
+
+The `Check Exclusion List` Code node scans **line item names only** (not descriptions or notes).
+`EXCLUDED_KEYWORDS` array at the top of the node:
+
+```javascript
+const EXCLUDED_KEYWORDS = [
+  'confirmation statement',
+  'government fee',
+  'state fee',
+  'irs fee'
+];
+```
+
+If any line item name contains one of these keywords (case-insensitive), `skip: true` is returned
+and the `Skip Check` IF node halts execution — no commission row is written.
+
+### New Zoho partner → sheet + welcome email (n8n Workflow B)
+
+8-node chain. Includes `Contact_Type` guard before any sheet or email is created.
+
+```
+Zoho CRM                    n8n                            Zoho CRM / Sheets / Postmark
+  │                               │                               │
+  │  POST /webhook/               │                               │
+  │  zoho-partner-created         │                               │
+  │ ─────────────────────────────>│                               │
+  │                               │  GET /crm/v3/Contacts/{id}   │
+  │                               │ ─────────────────────>Zoho CRM│
+  │                               │  ← full contact record       │
+  │                               │                               │
+  │                               │  IF Contact_Type === Partner │
+  │                               │  ≠ Partner → STOP            │
+  │                               │  = Partner → continue        │
+  │                               │                               │
+  │                               │  create commission sheet     │
+  │                               │ ─────────────────────────────>│
+  │                               │  add column headers          │
+  │                               │  update config sheet row     │
+  │                               │ ─────────────────────────────>│
+  │                               │  POST Postmark welcome email │
+  │                               │ ─────────────────────────────>│
+```
+
+---
+
+## Zoho CRM Field Setup
+
+Two custom fields power the automation chain:
+
+### Contact module — `Contact Type` (picklist)
+
+- **Values**: `Client`, `Partner`
+- **Default**: `Client`
+- Used by Workflow B to guard against creating portal accounts for non-partner contacts
+- Set to `Partner` when creating a new affiliate partner in Zoho CRM
+
+### Account module — `Partners` (single line text)
+
+- Stores the **CRM Contact ID** of the assigned partner for that client account
+- Used by Workflow A to look up which partner should receive the commission
+- Find the Contact ID from the partner's Zoho CRM contact URL
+- One account can have one assigned partner (single value field)
+
+### How the two fields work together
+
+```
+New partner contact (Contact_Type=Partner)
+         │
+         ▼ Workflow B fires
+  Creates Google Sheet + config row + sends welcome email
+         │
+         ▼ Staff action
+  Open each client Account in Zoho CRM
+  Paste partner's Contact ID into Partners field
+         │
+         ▼ On next paid invoice for that account
+  Workflow A fires → exclusion check → commission row written
+```
+
+---
+
+## Partner Setup Process (Two Steps)
+
+### Step 1 — Create the partner in Zoho CRM
+
+1. Zoho CRM → Contacts → **New Contact**
+2. Fill in: Full Name, Email address
+3. Set **Contact Type = Partner**
+4. Save
+
+n8n Workflow B fires automatically:
+- Creates the partner's Google Sheet
+- Adds their row to the production config sheet
+- Sends them a welcome email with their portal URL and password
+
+### Step 2 — Link the partner to their client accounts
+
+For each client account this partner manages:
+1. Open the client **Account** record in Zoho CRM
+2. Find the partner's **Contact ID** (visible in the partner's contact URL)
+3. Paste it into the **Partners** field on the Account record
+4. Save
+
+From this point, any paid invoice on that account triggers Workflow A and writes a commission row.
 
 ### Proxy caching
 
 `server.js` caches each upstream Google Sheets response in memory for **2 minutes**.
-This means the second fetch (commission data after password entry) is near-instant on repeat loads.
-A **10-second timeout** is enforced on all upstream requests — if Google doesn't respond, the server
-returns HTTP 504 and the UI shows an error rather than spinning forever.
+A **10-second timeout** is enforced on all upstream requests.
+
+---
+
+## PWA and Push Notifications
+
+### Service Worker (`service-worker.js`)
+
+- **Cache name**: `sterlinx-v1`
+- **Shell cache**: caches `/` and `/index.html` on install for offline support
+- **Push handler**: receives push payloads `{title, body, url}`, shows browser notification with icon
+- **Notification click**: focuses existing window or opens `data.url`
+- **BASE path**: derived from `self.location.pathname` at runtime — works at root (production) and subdirectory (GitHub Pages staging)
+
+### VAPID Keys (production)
+
+- **Public key**: `BA6TsVJ1abNci43WcY_hcnWiAgqVDJQqSaXEpkPV-HBSL4nx1lck2XBfoOyDurp9DrrWG21jz7whfQYQklrgqSE`
+- Private key stored in `server.js` on the server (not in git)
+
+### Push Endpoints (`server.js`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/push-vapid-key` | GET | Returns `{"publicKey":"..."}` for browser subscription setup |
+| `/push-subscribe` | POST | Stores `{slug, subscription}` to `push-subscriptions.json`, deduped by endpoint URL |
+| `/push-notify` | POST | Sends push to all subscribers for `slug`; auto-removes 410 Gone subscriptions |
 
 ---
 
@@ -136,19 +340,27 @@ returns HTTP 504 and the UI shows an error rather than spinning forever.
 | `2222` | ALLOW from `2.100.210.192` only | SSH restricted to known IP |
 | `80` on `lo` | Localhost only | Not exposed to internet |
 | `443` on `lo` | Localhost only | Not exposed to internet |
-| `5678` on `127.0.0.1` | Localhost only | n8n automation tool |
+| `5678` on `127.0.0.1` | Localhost only | n8n Docker internal port |
 
 Default policy: **deny incoming**, allow outgoing.
 
 ### Cloudflare Tunnel
 
 All public HTTPS traffic flows through a Cloudflare Tunnel (`cloudflared`), managed by PM2.
-There is no Nginx or direct port 443 exposure. Cloudflare handles:
-- TLS termination
-- DDoS protection
-- The `partners.sterlinxglobal.com` domain routing
+Tunnel ID: `309c1966-4023-48d5-9c61-bf2c6902b0d5`
 
-The tunnel forwards to `http://localhost:8080` (the Node.js app).
+| Hostname | Routes to |
+|----------|-----------|
+| `partners.sterlinxglobal.com` | `http://localhost:8080` |
+| `n8n.sterlinxglobal.com` | `http://localhost:5679` (nginx proxy in front of n8n Docker) |
+
+Cloudflare DNS record for `partners`: `CNAME → 309c1966-...cfargotunnel.com` (proxied).
+
+### nginx (n8n proxy)
+
+Thin nginx server on `127.0.0.1:5679` proxies to n8n Docker on `127.0.0.1:5678`.
+Adds `X-Robots-Tag: noindex, nofollow` to all n8n responses.
+Serves a `/robots.txt` with `Disallow: /` for n8n subdomain.
 
 ### SSH
 
@@ -162,10 +374,13 @@ The tunnel forwards to `http://localhost:8080` (the Node.js app).
 - Passwords stored in the config Google Sheet (staff-only access)
 - Passwords checked client-side; stored in `sessionStorage` (cleared on tab close)
 - No cookies, no server-side sessions, no personal data stored on the server
+- Push subscriptions stored in `push-subscriptions.json` (server-local, not in git)
 
 ---
 
 ## Deployment Workflow
+
+### Production (main → server)
 
 ```
 1. Edit files locally (VS Code)
@@ -178,27 +393,35 @@ The tunnel forwards to `http://localhost:8080` (the Node.js app).
 3. SSH into server (port 2222)
    run: /var/www/sterlinx-partners/deploy.sh
          │
-         ├── git pull origin main  (using ~/.ssh/github_deploy)
+         ├── GIT_SSH_COMMAND='ssh -i ~/.ssh/github_deploy' git pull origin main
          ├── pm2 restart sterlinx-server
          └── echo "Deployed at $(date)"
 ```
 
-`deploy.sh` content:
-```bash
-#!/bin/bash
-cd /var/www/sterlinx-partners
-GIT_SSH_COMMAND='ssh -i ~/.ssh/github_deploy' git pull origin main
-pm2 restart sterlinx-server
-echo "Deployed at $(date)"
+### Staging (staging → GitHub Pages)
+
 ```
+1. Edit files locally on staging branch
+         │
+         ▼
+2. git push origin staging
+   → GitHub Pages auto-deploys via .github/workflows/pages.yml
+   → https://ariful-commits.github.io/sterlinx-partners/
+```
+
+Staging uses:
+- Staging config sheet CSV (`2PACX-1vQBjSjoJK...`)
+- `window.location.hash` routing (GitHub Pages subdirectory compatibility)
+- Staging banner (`position:fixed`, amber bar at top)
+- `./manifest.json` and `./service-worker.js` (relative paths for subdirectory)
 
 ---
 
 ## Google Sheets Structure
 
-### Config Sheet (master partner list)
+### Production Config Sheet
 
-One row per partner. Published as CSV and referenced via `CONFIG_CSV_DIRECT` in `index.html`.
+Published CSV URL: `https://docs.google.com/spreadsheets/d/e/2PACX-1vTuxFpKKo.../pub?gid=0&single=true&output=csv`
 
 | Column | Key (`C.`) | Description |
 |--------|-----------|-------------|
@@ -208,6 +431,13 @@ One row per partner. Published as CSV and referenced via `CONFIG_CSV_DIRECT` in 
 | `CommissionRate` | `rate` | Commission % shown in the rate pill (default 20) |
 | `SheetTab` | `tab` | Tab name (informational; URL already encodes `gid=`) |
 | `Password` | `password` | Access password for this partner's dashboard |
+| `CRMContactID` | — | Zoho CRM contact ID — used by n8n to match webhook payload to partner |
+
+### Staging Config Sheet
+
+Published CSV URL: `https://docs.google.com/spreadsheets/d/e/2PACX-1vQBjSjoJK.../pub?gid=614516397&single=true&output=csv`
+
+Contains one row: Test Partner / `test-partner` / password `staging123`
 
 ### Partner Commission Sheet
 
@@ -219,20 +449,26 @@ skipped by `fetchSheet(..., 4)`. Row 5 is the header row.
 | `EntityName` | `entity` | Client / company name |
 | `InvoiceID` | `invoiceId` | Invoice reference number |
 | `InvoiceDate` | `invoiceDate` | Date invoice was raised (DD/MM/YYYY) |
-| `InvoicePaymentDate` | `payDate` | Date client paid the invoice (DD/MM/YYYY) — entered manually |
+| `InvoicePaymentDate` | `payDate` | Date client paid the invoice (DD/MM/YYYY) |
 | `PaymentDueDate` | `commDueDate` | Auto-calculated: `=D+30` — 30 days after client payment |
 | `AmountReceived` | — | Invoice amount received (£) |
 | `AmountExVAT` | `amtExVAT` | Invoice amount excluding VAT (£) |
-| `CommissionAmount` | `commAmt` | Auto-calculated: `=G×20%` — commission due to partner (£) |
-| `CommissionPaidDate` | `commPaidDate` | Date commission was paid to partner (DD/MM/YYYY) — entered manually |
+| `CommissionAmount` | `commAmt` | Auto-calculated: `=G×rate%` |
+| `CommissionPaidDate` | `commPaidDate` | Date commission was paid to partner (DD/MM/YYYY) |
 | `PartnersInvoiceID` | `partnerRef` | Partner's own invoice reference (shown when Paid) |
 | `Internal Notes` | — | Staff-only notes, not shown on dashboard |
+
+### Test Commission Sheet (staging)
+
+Spreadsheet ID: `1oNZwt_KnVSiTMFy9ya25r5A4C01p11VJjCbbJMUKL04`
+Tab name: `Test Partner Commission — STAGING` (sheetId: `1183970835`)
+Published CSV: `https://docs.google.com/spreadsheets/d/e/2PACX-1vTyDxvV0XX.../pub?gid=1183970835&single=true&output=csv`
+
+Contains 5 rows covering all three statuses: Paid ×2, Due for Payment ×1, Not Due ×2.
 
 ---
 
 ## Status Logic
-
-Commission status is derived entirely from dates — there is no manual status column.
 
 ```
 getStatus(row):
@@ -243,11 +479,6 @@ getStatus(row):
   else
     → "Not Due"
 ```
-
-`PaymentDueDate` (column E) is auto-calculated in the sheet as `=D+30` (30 days after the
-client payment date). `CommissionDueDate` no longer exists as a column.
-
-Dates are parsed as DD/MM/YYYY (Google Sheets default UK format).
 
 | Status | Badge colour | Meaning |
 |--------|-------------|---------|
@@ -261,5 +492,13 @@ Dates are parsed as DD/MM/YYYY (Google Sheets default UK format).
 
 | ID | Name | Description |
 |----|------|-------------|
-| 2 | `cloudflared-tunnel` | Cloudflare Tunnel daemon — public HTTPS routing |
+| 2 | `cloudflared-tunnel` | Cloudflare Tunnel daemon — routes public HTTPS to localhost |
 | 5 | `sterlinx-server` | Node.js app on port 8080 |
+
+## n8n
+
+- Runs as Docker container `n8n` using image `n8nio/n8n`
+- Data persisted in Docker volume `n8n_data` (survives container restarts)
+- Environment: `N8N_HOST=n8n.sterlinxglobal.com`, `WEBHOOK_URL=https://n8n.sterlinxglobal.com/`
+- Admin login: `ariful@abis.co`
+- Two active workflows — see `n8n-workflows/README.md`

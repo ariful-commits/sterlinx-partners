@@ -1,0 +1,214 @@
+{
+  "updatedAt": "2026-04-12T03:28:37.104Z",
+  "createdAt": "2026-04-12T03:28:37.104Z",
+  "id": "LyE90t70ctrWrBg5",
+  "name": "Zoho Invoice Paid → Partner Commission Sheet",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zoho-invoice-paid",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Get Zoho CRM Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.zohoapis.eu/crm/v3/Accounts/{{$json.body.invoice.account_id}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "zohoOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "7gSiNWgQLxn7Ac2i",
+          "name": "Zoho OAuth"
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "Check Partner Assigned",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        750,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.data[0].Partners}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4",
+      "name": "Fetch Config Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1000,
+        200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://docs.google.com/spreadsheets/d/13fHDhjOfeX1UKIUpJ1EKYQgEyqiP_JUoyUzrqIpdgXk/export?format=csv&gid=0",
+        "options": {}
+      }
+    },
+    {
+      "id": "5",
+      "name": "Parse Config CSV",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1250,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const csv = $input.first().json.data;\nconst lines = csv.split('\\n').filter(l => l.trim());\nconst headers = lines[0].split(',');\nconst partnerId = $node['Get Zoho CRM Account'].json.data[0].Partners;\nfor (let i = 1; i < lines.length; i++) {\n  const cols = lines[i].split(',');\n  const row = {};\n  headers.forEach((h, idx) => row[h.trim()] = cols[idx] ? cols[idx].trim() : '');\n  if (row.CRMContactID === partnerId) {\n    return [{ json: { partnerName: row.PartnerName, sheetUrl: row.SheetURL, commRate: row.CommissionRate } }];\n  }\n}\nreturn [{ json: { error: 'Partner not found in config' } }];"
+      }
+    },
+    {
+      "id": "6",
+      "name": "Append Commission Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1500,
+        200
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $json.sheetUrl }}",
+        "sheetName": "Commission_Log",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "EntityName": "={{$node['Get Zoho CRM Account'].json.data[0].Account_Name}}",
+            "InvoiceID": "={{$node['Webhook'].json.body.invoice.invoice_id}}",
+            "InvoiceDate": "={{$node['Webhook'].json.body.invoice.date}}",
+            "InvoicePaymentDate": "={{$node['Webhook'].json.body.invoice.payment_date}}",
+            "AmountReceived": "={{$node['Webhook'].json.body.invoice.total}}",
+            "AmountExVAT": "={{$node['Webhook'].json.body.invoice.sub_total}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "DOsJmGy6243Mz0jB",
+          "name": "Sterlinx Google SA"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Zoho CRM Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Zoho CRM Account": {
+      "main": [
+        [
+          {
+            "node": "Check Partner Assigned",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Partner Assigned": {
+      "main": [
+        [
+          {
+            "node": "Fetch Config Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetch Config Sheet": {
+      "main": [
+        [
+          {
+            "node": "Parse Config CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Config CSV": {
+      "main": [
+        [
+          {
+            "node": "Append Commission Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "47ca374b-779b-457c-860b-8952ca81a20e",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-04-12T03:28:37.108Z",
+      "createdAt": "2026-04-12T03:28:37.108Z",
+      "role": "workflow:owner",
+      "workflowId": "LyE90t70ctrWrBg5",
+      "projectId": "zF2SpvDGSrLTUTN9",
+      "project": {
+        "updatedAt": "2026-04-12T02:59:12.707Z",
+        "createdAt": "2026-03-18T02:32:49.495Z",
+        "id": "zF2SpvDGSrLTUTN9",
+        "name": "Ariful Islam <ariful@abis.co>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "b035e21e-a164-402b-9421-033afe5a28a0"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

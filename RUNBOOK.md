@@ -337,16 +337,34 @@ Current rules:
 - Port `5678` allowed on `127.0.0.1` only (n8n Docker)
 - Default: deny all incoming
 
-### Updating the SSH whitelist when your IP changes
+## SSH Access
 
-```bash
-ssh -p 2222 root@91.98.170.58   # must do this BEFORE your IP changes
-ufw delete allow 2222
-ufw allow from <new-ip> to any port 2222
-ufw status verbose               # confirm new rule
+All SSH access is through Cloudflare WARP Zero Trust. Direct SSH to port 2222 is blocked by UFW.
+
+### Requirements
+- Cloudflare WARP installed on your device
+- Logged into team: `abis-co` with `ariful@abis.co`
+- SSH config at `~/.ssh/config` with ProxyCommand entry (see below)
+
+### SSH config entry
+```
+Host ssh.sterlinxglobal.com
+    ProxyCommand cloudflared access ssh --hostname ssh.sterlinxglobal.com
+    User root
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519
 ```
 
-**Warning**: do this before your IP changes, or you will lock yourself out.
+### First time on a new device
+1. Install Cloudflare WARP from https://1.1.1.1/
+2. Connect to team: `abis-co`
+3. Install cloudflared: `winget install Cloudflare.cloudflared`
+4. Add SSH config entry above
+5. Run: `cloudflared access ssh --hostname ssh.sterlinxglobal.com` — complete browser login once
+6. SSH works from that point via Cursor or any SSH client
+
+### Emergency access
+Hetzner web console at console.hetzner.cloud → sterlinx-ops → Console tab
 
 ---
 
@@ -461,7 +479,7 @@ Any row where `EntityName` or `InvoiceID` is blank, or `EntityName` equals `TOTA
 | Add / remove a partner | Update the config Google Sheet (no code change needed) |
 | Invoice data changes | Edit the partner's Google Sheet directly |
 | Code change or bug fix | Claude Code — describe what needs to change |
-| Server access issues | SSH key holder only — port 2222, IP-restricted |
+| Server access issues | Cloudflare WARP + Access SSH (`ssh.sterlinxglobal.com`) |
 | Emergency server access | Hetzner console (browser-based, no SSH needed) |
 | Billing / infrastructure | Hetzner Cloud console + Cloudflare dashboard |
 | n8n automation issues | n8n.sterlinxglobal.com → Executions log |
